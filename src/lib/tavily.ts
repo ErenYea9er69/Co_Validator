@@ -58,6 +58,9 @@ async function search(
   query: string,
   options: SearchOptions = {}
 ): Promise<{ results: SearchResult[]; answer?: string }> {
+  // Tavily has a 400 character limit for queries
+  const safeQuery = query.length > 400 ? query.substring(0, 400) : query;
+  
   const {
     searchDepth = 'advanced',
     maxResults = 10,
@@ -70,7 +73,7 @@ async function search(
   } = options;
 
   if (useCache) {
-    const cached = await getCachedResults(query);
+    const cached = await getCachedResults(safeQuery);
     if (cached) return cached as { results: SearchResult[]; answer?: string };
   }
 
@@ -96,10 +99,10 @@ async function search(
         }
       }
 
-      const res = await getClient().search(query, activeOptions);
+      const res = await getClient().search(safeQuery, activeOptions);
       return res;
     } catch (error: any) {
-      console.error(`[Tavily] Search error for query "${query}":`, error?.message || error);
+      console.error(`[Tavily] Search error for query "${safeQuery}":`, error?.message || error);
       
       if (apiKeys.length > 1) {
         const prevIndex = currentKeyIndex;
@@ -122,13 +125,13 @@ async function search(
     answer: typeof response.answer === 'string' ? response.answer : undefined,
   };
 
-  console.log(`[Tavily] Search success for "${query}". Results: ${result.results.length}, Answer: ${result.answer ? 'Yes' : 'No'}`);
+  console.log(`[Tavily] Search success for "${safeQuery}". Results: ${result.results.length}, Answer: ${result.answer ? 'Yes' : 'No'}`);
   if (result.results.length > 0) {
     console.log(`[Tavily] Top result: ${result.results[0].title} (${result.results[0].url})`);
   }
 
   if (useCache) {
-    await setCachedResults(query, result);
+    await setCachedResults(safeQuery, result);
   }
 
   return result;
