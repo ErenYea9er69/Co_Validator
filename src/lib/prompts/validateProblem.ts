@@ -1,4 +1,4 @@
-import { thinkDeep } from '../longcat';
+import { thinkDeep } from '../ai';
 
 export async function validateProblem(idea: string, research: string): Promise<string> {
   const prompt = `

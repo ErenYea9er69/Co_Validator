@@ -1,4 +1,4 @@
-import { thinkDeep } from '../longcat';
+import { thinkDeep } from '../ai';
 
 export async function validateCompetition(idea: string, competitorAnalysis: string): Promise<string> {
   const messages = [
