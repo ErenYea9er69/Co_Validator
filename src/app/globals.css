@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --accent: #5e17eb; /* Deep Electric Purple */
+  --accent-glow: rgba(94, 23, 235, 0.4);
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+.glass-card {
+  @apply rounded-2xl p-6 transition-all duration-300;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+/* Custom Gradients */
+.bg-gradient-premium {
+  background: linear-gradient(135deg, #5e17eb 0%, #1e1e1e 100%);
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500;
+}
+
+/* Button Premium Styles */
+.btn-premium {
+  @apply px-8 py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 active:scale-95;
+  background: var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.btn-premium:hover {
+  box-shadow: 0 0 30px var(--accent-glow);
+}
