@@ -1,4 +1,4 @@
-import { thinkFast } from '../longcat';
+import { thinkDeep, thinkFast } from '../ai';
 
 export async function planResearch(
   focusAreas: string[],

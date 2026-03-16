@@ -21,16 +21,16 @@ function getClient(): OpenAI {
 
 export async function thinkDeep(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-  options: { jsonMode?: boolean; temperature?: number } = {}
+  options: { jsonMode?: boolean; temperature?: number; maxTokens?: number } = {}
 ): Promise<string> {
-  const { temperature = 0.5, jsonMode = false } = options;
+  const { temperature = 0.5, jsonMode = false, maxTokens = 16384 } = options;
 
   try {
     const result = await getClient().chat.completions.create({
       model: 'longcat-flash-thinking-2601',
       messages,
       temperature,
-      max_tokens: 16384,
+      max_tokens: maxTokens,
       ...(jsonMode && { response_format: { type: 'json_object' } }),
     });
 
@@ -42,3 +42,5 @@ export async function thinkDeep(
     throw error;
   }
 }
+
+export const thinkFast = thinkDeep;

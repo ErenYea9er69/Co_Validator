@@ -1,4 +1,4 @@
-import { thinkDeep } from '../longcat';
+import { thinkDeep, thinkFast } from '../ai';
 
 export async function generateIdeas(
   marketIntelligence: string,

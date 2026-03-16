@@ -1,4 +1,4 @@
-import { thinkDeep } from '../longcat';
+import { thinkDeep } from '../ai';
 
 export async function generateActionPlan(idea: string, validationResults: string): Promise<string> {
   const messages = [

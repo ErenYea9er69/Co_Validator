@@ -1,4 +1,4 @@
-import { thinkDeep } from '../longcat';
+import { thinkDeep } from '../ai';
 
 export async function quickValidator(
   idea: { name: string, problem: string, solution: string, competitors?: string, monetization?: string },
