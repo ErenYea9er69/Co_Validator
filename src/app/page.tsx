@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import * as actions from './actions';
 
 export default function Home() {
@@ -10,7 +10,7 @@ export default function Home() {
     solution: '',
     industry: '',
     monetization: '',
-    competitorsInfo: '' // New field: "Competitors & How to beat them"
+    competitorsInfo: ''
   });
   const [founderDNA] = useState({
     skills: ['Technical Generalist'],
@@ -25,36 +25,16 @@ export default function Home() {
   const [result, setResult] = useState<any>(null);
   const [showFullReport, setShowFullReport] = useState(false);
   
-  // Interactive Modal State
-  const [modalType, setModalType] = useState<'interrogation' | 'pre-mortem' | null>(null);
-  const [modalData, setModalData] = useState<any>(null);
-  const [modalInput, setModalInput] = useState<string[]>([]);
-  const inputResolver = useRef<((value: any) => void) | null>(null);
+  // Background data for interrogation and pre-mortem results
+  const [challenges, setChallenges] = useState<any>(null);
 
   const addLog = (msg: string) => setLogs(prev => [...prev.slice(-10), msg]);
-
-  const waitForInput = (type: 'interrogation' | 'pre-mortem', data: any) => {
-    setModalType(type);
-    setModalData(data);
-    setModalInput(new Array(data.questions?.length || data.scenarios?.length || 1).fill(''));
-    return new Promise((resolve) => {
-      inputResolver.current = resolve;
-    });
-  };
-
-  const submitModal = () => {
-    if (inputResolver.current) {
-      inputResolver.current(modalInput);
-      setModalType(null);
-      setModalData(null);
-      inputResolver.current = null;
-    }
-  };
 
   const startAudit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
+    setChallenges(null);
     setShowFullReport(false);
     setLogs(['Initiating engines...']);
     
@@ -101,34 +81,34 @@ export default function Home() {
       const p6 = await actions.runPhase6Differentiation(idea, p2.raw);
       addLog('Differentiation report generated.');
 
-      // ═══ INTERROGATION AT THE END ═══
+      // ═══ AUTONOMOUS INTERROGATION (BACKGROUND) ═══
       setPhase(6.5);
-      setPhaseName('The Interrogation');
-      addLog('Consulting pattern matching algorithms for final challenges...');
-      const interrogation = await actions.runInterrogation(idea, founderDNA);
-      const interrogationAnswers = await waitForInput('interrogation', interrogation);
-      addLog('Defense submitted. Processing final verdict...');
+      setPhaseName('The Interrogation (BG)');
+      addLog('Consulting pattern matching algorithms for hidden risks...');
+      const interrogationData = await actions.runInterrogation(idea, founderDNA);
+      addLog('Deep risks identified.');
 
-      // 6.7 Pre-Mortem
-      setPhase(6.7);
-      setPhaseName('Pre-Mortem Simulation');
-      addLog('Summoning the Angel of Death...');
-      const preMortem = await actions.runPreMortem(idea, founderDNA);
-      const preMortemResponse = await waitForInput('pre-mortem', preMortem);
-      addLog('Survival plan submitted.');
+      // ═══ AUTONOMOUS PRE-MORTEM (BACKGROUND) ═══
+      setPhase(6.8);
+      setPhaseName('Survival Simulation (BG)');
+      addLog('Simulating critical failure vectors...');
+      const preMortemData = await actions.runPreMortem(idea, founderDNA);
+      setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
+      addLog('Failure vectors mapped.');
 
       // 7. Failure Scenarios
       setPhase(7);
-      setPhaseName('Failure Scenarios');
-      addLog('Stress-testing remaining failure vectors...');
-      const p7 = await actions.runPhase7Failures(idea, preMortemResponse, { p1, p2, p3, p4, p5, p6 });
+      setPhaseName('Final Stress Test');
+      addLog('Synthesizing background simulations into stress test...');
+      const p7 = await actions.runPhase7Failures(idea, preMortemData, { p1, p2, p3, p4, p5, p6 });
       addLog('Stress test complete.');
 
       // 8. Final Scoring
       setPhase(8);
       setPhaseName('Final Scoring');
       addLog('Synthesizing Master Verdict...');
-      const finalResult = await actions.finalizeAudit(idea, interrogationAnswers, preMortemResponse, { p1, p2, p3, p4, p5, p6, p7 }, founderDNA);
+      // Pass the background data as "responses" to skip the manual interaction
+      const finalResult = await actions.finalizeAudit(idea, interrogationData, preMortemData, { p1, p2, p3, p4, p5, p6, p7 }, founderDNA);
       
       setResult(finalResult);
       setPhase(10); // Finished
@@ -161,7 +141,7 @@ export default function Home() {
               <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded ml-2 uppercase tracking-widest align-middle">Deep Audit</span>
             </h1>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto italic">
-              "The Silicon Valley Blitz-Auditor" — Full 8-phase high-pressure simulation.
+              "The Silicon Valley Blitz-Auditor" — End-to-end autonomous simulation.
             </p>
           </header>
         )}
@@ -228,14 +208,14 @@ export default function Home() {
                 type="submit" 
                 className="w-full btn-premium"
               >
-                START DEEP VALIDATION
+                START AUTONOMOUS AUDIT
               </button>
             </form>
           </div>
         )}
 
         {/* Loading / Progress State */}
-        {loading && !modalType && !showFullReport && (
+        {loading && !showFullReport && (
           <div className="max-w-2xl mx-auto space-y-8 text-center py-20 animate-fade-in">
             <div className="relative inline-block">
               <div className="w-32 h-32 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
@@ -255,54 +235,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Interactive Modal */}
-        {modalType && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-6 overflow-y-auto">
-            <div className="max-w-3xl w-full glass-card border-purple-500 animate-fade-in my-auto">
-              <div className="mb-8">
-                <span className="text-xs font-black tracking-widest text-purple-400 uppercase">Input Required</span>
-                <h2 className="text-3xl font-black mt-2">
-                  {modalType === 'interrogation' ? 'The Interrogation' : 'The Angel of Death (Pre-Mortem)'}
-                </h2>
-                <p className="text-gray-400 italic mt-2">
-                  {modalType === 'interrogation' 
-                    ? "The blitz-auditor has flagged these concerns. Defend your idea."
-                    : "The auditor has simulated your failure. How do you respond?"}
-                </p>
-              </div>
-
-              <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
-                {(modalData?.questions || modalData?.scenarios || []).map((q: any, i: number) => (
-                  <div key={i} className="space-y-4">
-                    <div className="p-4 bg-purple-900/10 border-l-4 border-purple-500 rounded-r-lg">
-                      <p className="font-bold text-lg">{q.question || q.scenario}</p>
-                      {q.conflictNugget && <p className="text-sm text-red-400 mt-2 italic">{q.conflictNugget}</p>}
-                    </div>
-                    <textarea 
-                      className="w-full bg-black/50 border border-white/10 rounded-lg p-4 focus:border-purple-500 outline-none transition-all h-24"
-                      placeholder="Type your response..."
-                      value={modalInput[i] || ''}
-                      onChange={(e) => {
-                        const newIn = [...modalInput];
-                        newIn[i] = e.target.value;
-                        setModalInput(newIn);
-                      }}
-                    />
-                  </div>
-                ))}
-                {(!modalData?.questions && !modalData?.scenarios) && (
-                  <p className="text-gray-500 italic">No specific challenges found. Proceeding...</p>
-                )}
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <button onClick={submitModal} className="btn-premium px-12">SUBMIT DEFENSE</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Final Result / Full Report View */}
+        {/* Final Result Display */}
         {result && (
           <div className="animate-fade-in">
             {/* Toggle Report Mode */}
@@ -329,7 +262,7 @@ export default function Home() {
 
             {!showFullReport ? (
               <div className="space-y-12">
-                {/* Scoreboard View (Original) */}
+                {/* Scoreboard View */}
                 <div className="glass-card !bg-purple-900/10 border-purple-500/50 p-10 text-center">
                   <div className="flex justify-center gap-4 mb-6 flex-wrap">
                       {Object.entries(result.compositeScores || {}).slice(0, 4).map(([key, value]) => (
@@ -350,6 +283,7 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Dimension Scores */}
                 <div className="grid lg:grid-cols-2 gap-8">
                   <section className="glass-card">
                     <h4 className="text-2xl font-black mb-8 border-b border-white/10 pb-4 text-purple-400">Dimension Heatmap</h4>
@@ -368,19 +302,28 @@ export default function Home() {
                     </div>
                   </section>
 
+                  {/* Signals */}
                   <div className="space-y-8">
                     <div className="glass-card">
                       <h4 className="text-xs font-bold text-purple-400 uppercase mb-4">Master Reasoning</h4>
                       <p className="text-sm text-gray-400 leading-relaxed italic">{result.reasoning}</p>
                     </div>
-                    <div className="glass-card border-l-4 border-green-500">
-                        <h4 className="text-xs font-bold text-green-500 uppercase mb-4">Winners Signals</h4>
-                        <ul className="space-y-2">
-                            {result.expertSignals?.green?.map((r: string, i: number) => (
-                              <li key={i} className="text-sm text-gray-300 flex items-start gap-2">✓ {r}</li>
-                            ))}
-                        </ul>
-                    </div>
+                    
+                    {/* Critical Challenges Section */}
+                    {challenges && (
+                      <div className="glass-card border-l-4 border-orange-500 bg-orange-500/5">
+                        <h4 className="text-xs font-bold text-orange-500 uppercase mb-4">Identified Critical Challenges</h4>
+                        <div className="space-y-4">
+                          {challenges.interrogation?.questions?.slice(0, 2).map((q: any, i: number) => (
+                            <div key={i} className="text-sm">
+                              <p className="font-bold text-gray-200">Challenge: {q.question}</p>
+                              {q.conflictNugget && <p className="text-xs text-red-400 mt-1 italic">Vulnerability: {q.conflictNugget}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="glass-card border-l-4 border-red-500">
                         <h4 className="text-xs font-bold text-red-500 uppercase mb-4">Critical Vulnerabilities</h4>
                         <ul className="space-y-2">
@@ -396,44 +339,65 @@ export default function Home() {
               /* Full Report View */
               <div className="space-y-12 pb-24 animate-fade-in">
                 <div className="text-center mb-16">
-                   <h2 className="text-5xl font-black mb-4">FULL AUDIT DOSSIER: {idea.name}</h2>
-                   <p className="text-gray-500 uppercase tracking-[0.5em]">Confidential Assessment</p>
+                   <h2 className="text-5xl font-black mb-4 uppercase tracking-tighter">FULL AUDIT DOSSIER: {idea.name}</h2>
+                   <p className="text-gray-500 uppercase tracking-[0.5em]">Confidential Background Investigation</p>
                 </div>
 
-                {/* Section: The Challenge Defense */}
+                {/* Section: Challenge & Defense Logic */}
                 <section className="space-y-6">
-                  <h3 className="text-2xl font-black text-purple-400 border-b border-white/10 pb-2">I. CHALLENGE & DEFENSE</h3>
+                  <h3 className="text-2xl font-black text-purple-400 border-b border-white/10 pb-2">I. AUTOMATED INTERROGATION FINDINGS</h3>
                   <div className="grid gap-6">
-                    <div className="glass-card bg-purple-900/5">
-                      <h4 className="text-sm font-bold text-gray-500 mb-4 uppercase">Resolution Logic</h4>
-                      <p className="text-lg leading-relaxed">{result.conflictResolution || "No major logical conflicts detected during simulation."}</p>
+                    {challenges?.interrogation?.questions?.map((q: any, i: number) => (
+                      <div key={i} className="glass-card !bg-white/5">
+                        <h4 className="text-sm font-black text-purple-400 mb-2">RISK VECTOR {i+1}</h4>
+                        <p className="text-lg font-bold mb-2">{q.question}</p>
+                        <p className="text-sm text-gray-400 italic">{q.conflictNugget}</p>
+                      </div>
+                    ))}
+                    <div className="glass-card bg-purple-900/5 mt-4">
+                      <h4 className="text-sm font-bold text-gray-500 mb-4 uppercase">Background Resolution</h4>
+                      <p className="text-lg leading-relaxed">{result.conflictResolution || "Simulation resolved all internal logic conflicts."}</p>
                     </div>
+                  </div>
+                </section>
+
+                {/* Section: Survival Simulation */}
+                <section className="space-y-6">
+                  <h3 className="text-2xl font-black text-orange-400 border-b border-white/10 pb-2">II. SURVIVAL SIMULATION (PRE-MORTEM)</h3>
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    {challenges?.preMortem?.scenarios?.map((s: any, i: number) => (
+                      <div key={i} className="glass-card border border-orange-500/20">
+                        <h4 className="text-xs font-black text-orange-500 mb-2 uppercase">Scenario {i+1}</h4>
+                        <p className="text-sm text-gray-300 leading-relaxed font-bold">{s.scenario}</p>
+                        <p className="text-xs text-red-400 mt-2 italic">Fatal Flaw: {s.fatalFlaw}</p>
+                      </div>
+                    ))}
                   </div>
                 </section>
 
                 {/* Section: Market Intelligence */}
                 <section className="space-y-6">
-                  <h3 className="text-2xl font-black text-purple-400 border-b border-white/10 pb-2">II. MARKET INTELLIGENCE</h3>
+                  <h3 className="text-2xl font-black text-purple-400 border-b border-white/10 pb-2">III. MARKET INTELLIGENCE</h3>
                   <div className="grid lg:grid-cols-2 gap-8">
                     <div className="glass-card">
                       <h4 className="text-sm font-bold text-gray-500 mb-4 uppercase">Billion Dollar Trajectory</h4>
-                      <p className="text-gray-300 leading-relaxed">{result.futureSandbox?.billionDollarPath || "N/A"}</p>
+                      <p className="text-gray-300 leading-relaxed font-bold">{result.futureSandbox?.billionDollarPath || "N/A"}</p>
                     </div>
                     <div className="glass-card">
                       <h4 className="text-sm font-bold text-gray-500 mb-4 uppercase">The Zombie Trap</h4>
-                      <p className="text-gray-300 leading-relaxed">{result.futureSandbox?.zombiePath || "N/A"}</p>
+                      <p className="text-gray-300 leading-relaxed font-bold">{result.futureSandbox?.zombiePath || "N/A"}</p>
                     </div>
                   </div>
                 </section>
 
                 {/* Section: Unit Economics */}
                 <section className="space-y-6">
-                  <h3 className="text-2xl font-black text-purple-400 border-b border-white/10 pb-2">III. UNIT ECONOMICS SIMULATION</h3>
+                  <h3 className="text-2xl font-black text-purple-400 border-b border-white/10 pb-2">IV. UNIT ECONOMICS SIMULATION</h3>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                      {Object.entries(result.unitEconomicsReality || {}).map(([key, val]) => (
-                       <div key={key} className="glass-card text-center">
+                       <div key={key} className="glass-card text-center !bg-white/5">
                          <div className="text-[10px] text-gray-500 uppercase mb-2">{key}</div>
-                         <div className="text-2xl font-black">{String(val)}</div>
+                         <div className="text-2xl font-black text-purple-400">{String(val)}</div>
                        </div>
                      ))}
                   </div>
@@ -442,7 +406,7 @@ export default function Home() {
                 {/* Footer / Reset */}
                 <div className="pt-12 text-center print:hidden">
                    <button 
-                     onClick={() => {setResult(null); setPhase(-1); setShowFullReport(false);}}
+                     onClick={() => {setResult(null); setPhase(-1); setShowFullReport(false); setChallenges(null);}}
                      className="px-12 py-4 border border-white/10 rounded-xl text-gray-500 hover:text-white hover:bg-white/5 transition-all uppercase text-xs font-black tracking-widest"
                    >
                      Reset Auditor Database
