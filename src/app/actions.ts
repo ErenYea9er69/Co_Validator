@@ -16,7 +16,6 @@ import { generateProjections } from '@/lib/prompts/generateProjections';
 import { generateBlueprint } from '@/lib/prompts/generateBlueprint';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
 import { coronerReport } from '@/lib/prompts/coronerReport';
-import { founderFit } from '@/lib/prompts/founderFit';
 import { retryWithBackoff } from '@/lib/retryHandler';
 
 function safeJsonParse(text: string, fallback: any = {}): any {
@@ -53,14 +52,14 @@ export async function runPhase1Problem(idea: any, initialContext: string) {
   const ideaStr = JSON.stringify(idea);
   const evidence = await verifyProblem(idea.problem, idea.industry);
   const raw = await validateProblem(ideaStr + "\nCONTEXT: " + initialContext, JSON.stringify(evidence.results));
-  return { raw, parsed: safeJsonParse(raw) };
+  return { raw, parsed: safeJsonParse(raw), searchResults: evidence.results };
 }
 
 export async function runPhase2Competitors(idea: any, competitorsInfo: string) {
   const ideaStr = JSON.stringify(idea);
   const compResults = await searchCompetitors(idea.name, idea.industry);
   const raw = await validateCompetitors(ideaStr + "\nUSER COMPETITOR INFO: " + competitorsInfo, JSON.stringify(compResults.results));
-  return { raw, parsed: safeJsonParse(raw) };
+  return { raw, parsed: safeJsonParse(raw), searchResults: compResults.results };
 }
 
 export async function runPhase3Competition(idea: any, p2Raw: string) {
@@ -76,7 +75,7 @@ export async function runPhase4Feasibility(idea: any, founderDNA: any) {
 export async function runPhase5Market(idea: any) {
   const pricingResults = await searchPricing(idea.name, idea.industry);
   const raw = await validateMarket(JSON.stringify(idea), JSON.stringify(pricingResults.results));
-  return { raw, parsed: safeJsonParse(raw) };
+  return { raw, parsed: safeJsonParse(raw), searchResults: pricingResults.results };
 }
 
 export async function runPhase6Differentiation(idea: any, p2Raw: string) {
@@ -94,39 +93,32 @@ export async function runPhase7Failures(idea: any, simResponse: any, context: an
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, founderDNA: any) {
+export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, founderDNA: any, collectedEvidence: any) {
   const inputStr = JSON.stringify(idea) + "\nINPUTS: " + JSON.stringify(answers) + "\n" + JSON.stringify(simResponse);
   const raw = await finalScoring(inputStr, JSON.stringify(context), founderDNA);
   const parsed = safeJsonParse(raw);
 
-  // 10X Upgrades: Conditional Generation
-  // We use a simple score threshold (e.g., Composite Score average > 70 or similar)
-  // or a qualitative check on the verdict emoji.
   const avgScore = parsed.compositeScores ? 
     Object.values(parsed.compositeScores as Record<string, number>).reduce((a, b) => a + b, 0) / Object.values(parsed.compositeScores).length
     : 0;
 
   let extraData: any = {};
   if (avgScore >= 65) {
-    // Idea is "Worth It" -> Generate Projections, Blueprint, Coroner, and Founder Fit
-    const [projectionsRaw, blueprintRaw, coronerRaw, founderRaw] = await Promise.all([
+    const [projectionsRaw, blueprintRaw, coronerRaw] = await Promise.all([
       generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
       generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
       coronerReport(JSON.stringify(idea), JSON.stringify(context)),
-      founderFit(JSON.stringify(idea), founderDNA)
     ]);
     extraData.projections = safeJsonParse(projectionsRaw);
     extraData.blueprint = safeJsonParse(blueprintRaw);
     extraData.coronerReport = safeJsonParse(coronerRaw);
-    extraData.founderAlignment = safeJsonParse(founderRaw);
   } else {
-    // Idea is "Needs Pivot" -> Generate Pivots
     const pivotRaw = await pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse));
     extraData.pivots = safeJsonParse(pivotRaw);
   }
 
-  // Pass raw research context for the "Evidence Vault"
-  extraData.evidenceVault = context;
+  // Pass the properly collected evidence (raw Tavily results only)
+  extraData.evidenceVault = collectedEvidence;
 
   return { ...parsed, ...extraData };
 }

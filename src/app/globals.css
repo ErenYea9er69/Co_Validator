@@ -3,7 +3,7 @@
 :root {
   --background: #0a0a0a;
   --foreground: #ededed;
-  --accent: #5e17eb; /* Deep Electric Purple */
+  --accent: #5e17eb;
   --accent-glow: rgba(94, 23, 235, 0.4);
   --glass: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.1);
@@ -30,32 +30,96 @@ body {
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
-/* Animations */
+/* ─── Animations ─── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+.animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
 
-.animate-fade-in {
-  animation: fadeIn 0.8s ease-out forwards;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+.animate-slide-up { animation: slideUp 0.6s ease-out both; }
 
-/* Custom Gradients */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scaleIn 0.4s ease-out forwards; }
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-right { animation: slideInRight 0.35s ease-out forwards; }
+
+@keyframes bounceSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-bounce-subtle { animation: bounceSoft 2s infinite; }
+
+/* ─── Gradients & Utilities ─── */
 .bg-gradient-premium {
   background: linear-gradient(135deg, #5e17eb 0%, #1e1e1e 100%);
 }
-
 .text-gradient {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500;
 }
 
-/* Button Premium Styles */
+/* ─── Button Premium ─── */
 .btn-premium {
   @apply px-8 py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 active:scale-95;
   background: var(--accent);
   box-shadow: 0 0 15px var(--accent-glow);
 }
-
 .btn-premium:hover {
   box-shadow: 0 0 30px var(--accent-glow);
+}
+
+/* ─── Print / PDF Stylesheet ─── */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .glass-card {
+    background: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  .glass-card:hover {
+    border-color: #e5e7eb !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide interactive elements */
+  button, .print\\:hidden, [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  /* Force all sections visible */
+  .dossier-view section { break-inside: avoid; }
+
+  /* Override dark text */
+  h1, h2, h3, h4, h5, h6 { color: black !important; }
+  p, span, li, div { color: #374151 !important; }
+  .text-purple-400, .text-purple-500 { color: #7c3aed !important; }
+  .text-green-400, .text-green-500 { color: #16a34a !important; }
+  .text-red-400, .text-red-500 { color: #dc2626 !important; }
+  .text-orange-400, .text-orange-500 { color: #ea580c !important; }
+
+  /* Fix backgrounds */
+  main { background: white !important; padding: 20px !important; }
+
+  /* Progress bars visible */
+  .bg-gradient-to-r { print-color-adjust: exact; }
 }
