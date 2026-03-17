@@ -496,7 +496,7 @@ export default function Home() {
                 </div>
              </section>
 
-             {/* V. Angel of Death Scenarios */}
+              {/* V. Angel of Death Scenarios */}
              <section className="space-y-8 animate-slide-up" style={{ animationDelay: '0.8s' }}>
                 <h3 className="text-3xl font-black text-orange-500 flex items-center gap-4">
                    <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30 underline decoration-orange-500/50">V</span>
@@ -521,10 +521,117 @@ export default function Home() {
                 </div>
              </section>
 
-             {/* VI. Final Committee Resolution */}
+             {/* VI. 10X Upgrade: Future Sandbox (Conditional) */}
+             {result.projections && (
+               <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1s' }}>
+                  <h3 className="text-3xl font-black text-green-400 flex items-center gap-4">
+                     <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">VI</span>
+                     FUTURE SANDBOX: 12-MONTH TRAJECTORY
+                  </h3>
+                  <div className="glass-card !bg-green-500/5 border-green-500/20">
+                    <p className="text-sm text-gray-400 mb-8 italic">{result.projections.summary}</p>
+                    <div className="h-64 w-full relative group">
+                      {/* Simple SVG Line Chart */}
+                      <svg viewBox="0 0 1200 300" className="w-full h-full overflow-visible">
+                        <defs>
+                          <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.5" />
+                            <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+                          </linearGradient>
+                        </defs>
+                        {/* Area */}
+                        <path 
+                          d={`M 0 300 ${result.projections.dataPoints.map((p: any, i: number) => `L ${i * 109} ${300 - (p.revenue / Math.max(...result.projections.dataPoints.map((dp:any) => dp.revenue || 1))) * 250}`).join(' ')} L 1100 300 Z`}
+                          fill="url(#lineGrad)"
+                        />
+                        {/* Line */}
+                        <path 
+                          d={`M 0 300 ${result.projections.dataPoints.map((p: any, i: number) => `L ${i * 109} ${300 - (p.revenue / Math.max(...result.projections.dataPoints.map((dp:any) => dp.revenue || 1))) * 250}`).join(' ')}`}
+                          fill="none" 
+                          stroke="#22c55e" 
+                          strokeWidth="4"
+                          className="drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]"
+                        />
+                        {/* Points */}
+                        {result.projections.dataPoints.map((p: any, i: number) => (
+                          <g key={i} className="cursor-help hover:opacity-100 opacity-50 transition-all">
+                            <circle cx={i * 109} cy={300 - (p.revenue / Math.max(...result.projections.dataPoints.map((dp:any) => dp.revenue || 1))) * 250} r="6" fill="#22c55e" />
+                            <text x={i * 109} y="320" fill="#6b7280" fontSize="12" textAnchor="middle">M{p.month}</text>
+                          </g>
+                        ))}
+                      </svg>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
+                       {result.projections.dataPoints.slice(-4).map((p: any, i: number) => (
+                         <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
+                            <span className="text-[10px] text-gray-500 uppercase block mb-1">Month {p.month} Rev</span>
+                            <span className="text-xl font-black text-green-400">${p.revenue?.toLocaleString()}</span>
+                            <p className="text-[9px] text-gray-500 mt-2 truncate">{p.milestone}</p>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+               </section>
+             )}
+
+             {/* VII. 10X Upgrade: Tactical Blueprint (Conditional) */}
+             {result.blueprint && (
+               <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1.2s' }}>
+                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
+                     <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VII</span>
+                     TACTICAL 30-DAY BLITZ PLAN
+                  </h3>
+                  <div className="grid lg:grid-cols-4 gap-4">
+                    {result.blueprint.weeks.map((w: any) => (
+                      <div key={w.week} className="glass-card border-t-4 border-purple-500">
+                        <h4 className="text-lg font-black text-white mb-2 underline decoration-purple-500/50">WEEK {w.week}</h4>
+                        <p className="text-[10px] text-purple-400 uppercase font-black mb-4">{w.focus}</p>
+                        <ul className="space-y-4">
+                          {w.tasks.map((t: any, idx: number) => (
+                            <li key={idx} className="group cursor-pointer">
+                              <div className="flex gap-3">
+                                <span className="w-5 h-5 flex-shrink-0 border border-white/20 rounded flex items-center justify-center text-[10px] group-hover:bg-purple-500 group-hover:border-purple-500 transition-all font-bold">{t.day}</span>
+                                <p className="text-xs text-gray-300 leading-tight group-hover:text-white transition-colors">{t.task}</p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+               </section>
+             )}
+
+             {/* VIII. 10X Upgrade: Pivot Engine (Conditional) */}
+             {result.pivots && (
+               <section className="space-y-8 animate-slide-up" style={{ animationDelay: '0.5s' }}>
+                  <div className="p-1 text-center bg-red-500/20 rounded-t-2xl border-t border-x border-red-500/30">
+                    <p className="text-[10px] font-black tracking-[1em] uppercase py-2">Simulation Failure Detected — Initiating Pivot Engine</p>
+                  </div>
+                  <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
+                     <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">VIII</span>
+                     STRATEGIC PIVOT ENGINE
+                  </h3>
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {result.pivots.map((p: any, i: number) => (
+                      <div key={i} className="glass-card border-l-4 border-red-500 !bg-red-500/5 hover:!bg-red-500/10 transition-all">
+                        <h4 className="text-xl font-black text-white mb-2">{p.name}</h4>
+                        <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-black uppercase mb-4 inline-block">{p.shift}</span>
+                        <p className="text-sm text-gray-300 mb-4 italic font-medium">"{p.logic}"</p>
+                        <div className="pt-4 border-t border-red-500/20">
+                          <p className="text-[10px] text-red-400 uppercase font-black mb-1">New Opportunity</p>
+                          <p className="text-xs text-white font-bold">{p.opportunity}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+               </section>
+             )}
+
+              {/* IX. Final Committee Resolution */}
              <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
-                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VI</span>
+                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IX</span>
                    FINAL COMMITTEE RESOLUTION
                 </h3>
                 <div className="glass-card !bg-purple-500/5 border-purple-500/30">

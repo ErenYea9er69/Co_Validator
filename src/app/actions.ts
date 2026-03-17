@@ -12,6 +12,9 @@ import { validateFailures } from '@/lib/prompts/validateFailures';
 import { finalScoring } from '@/lib/prompts/finalScoring';
 import { interrogateIdea } from '@/lib/prompts/interrogateIdea';
 import { preMortemSimulation } from '@/lib/prompts/preMortemSimulation';
+import { generateProjections } from '@/lib/prompts/generateProjections';
+import { generateBlueprint } from '@/lib/prompts/generateBlueprint';
+import { pivotEngine } from '@/lib/prompts/pivotEngine';
 import { retryWithBackoff } from '@/lib/retryHandler';
 
 function safeJsonParse(text: string, fallback: any = {}): any {
@@ -92,5 +95,29 @@ export async function runPhase7Failures(idea: any, simResponse: any, context: an
 export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, founderDNA: any) {
   const inputStr = JSON.stringify(idea) + "\nINPUTS: " + JSON.stringify(answers) + "\n" + JSON.stringify(simResponse);
   const raw = await finalScoring(inputStr, JSON.stringify(context), founderDNA);
-  return safeJsonParse(raw);
+  const parsed = safeJsonParse(raw);
+
+  // 10X Upgrades: Conditional Generation
+  // We use a simple score threshold (e.g., Composite Score average > 70 or similar)
+  // or a qualitative check on the verdict emoji.
+  const avgScore = parsed.compositeScores ? 
+    Object.values(parsed.compositeScores as Record<string, number>).reduce((a, b) => a + b, 0) / Object.values(parsed.compositeScores).length
+    : 0;
+
+  let extraData: any = {};
+  if (avgScore >= 65) {
+    // Idea is "Worth It" -> Generate Projections & Blueprint
+    const [projectionsRaw, blueprintRaw] = await Promise.all([
+      generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
+      generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse))
+    ]);
+    extraData.projections = safeJsonParse(projectionsRaw);
+    extraData.blueprint = safeJsonParse(blueprintRaw);
+  } else {
+    // Idea is "Needs Pivot" -> Generate Pivots
+    const pivotRaw = await pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse));
+    extraData.pivots = safeJsonParse(pivotRaw);
+  }
+
+  return { ...parsed, ...extraData };
 }
