@@ -101,8 +101,8 @@ body {
     box-shadow: none !important;
   }
 
-  /* Hide interactive elements */
-  button, [data-print-hide] {
+  /* Hide interactive elements but keep display-only badges */
+  button:not([data-print-keep]), [data-print-hide] {
     display: none !important;
   }
 

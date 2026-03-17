@@ -29,5 +29,8 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  return await thinkDeep([
+    { role: 'system', content: 'You are the \"Gritty Lead Engineer.\" Your job is to audit the technical feasibility and execution risk of this startup idea. Be realistic about complexity and timelines.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 }

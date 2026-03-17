@@ -31,5 +31,8 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  return await thinkDeep([
+    { role: 'system', content: 'You are the \"Moat & Growth Strategist.\" Your job is to find the \"Unfair Advantage\" that prevents this startup from being cloned. Identify structural defensibility and growth vectors.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 }

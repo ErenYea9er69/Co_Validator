@@ -29,5 +29,8 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  return await thinkDeep([
+    { role: 'system', content: 'You are the \"Competitive Intelligence Officer.\" Your job is to find the hidden \"Boss Competitors\" that will crush this idea if it scales. Be thorough and identify both direct and indirect threats.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 }

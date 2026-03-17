@@ -363,7 +363,7 @@ export default function Home() {
             <div className="relative inline-block">
               <div className="w-32 h-32 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin shadow-lg shadow-purple-500/20" />
               <div className="absolute inset-0 flex items-center justify-center font-black text-2xl text-purple-400">
-                {Math.round((phase / 8) * 100)}%
+                {Math.min(Math.round((phase / 10) * 100), 99)}%
               </div>
             </div>
             <div>
@@ -381,7 +381,7 @@ export default function Home() {
         {/* Result Header Buttons */}
         {result && (
           <div className="flex justify-end gap-4 print:hidden mb-8 animate-fade-in flex-wrap">
-             <button onClick={() => { setResult(null); setPhase(-1); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null); clearSaved(); }}
+             <button onClick={() => { setResult(null); setPhase(-1); setPhaseName(''); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null); setStressTestLoading(false); setFailedPhases([]); setLogs([]); setStressTestInput(''); clearSaved(); }}
                 className="px-6 py-2 border border-green-500/50 rounded-full text-xs font-black uppercase tracking-widest hover:bg-green-500/10 transition-all text-green-400">
                 + New Audit
              </button>
@@ -454,6 +454,12 @@ export default function Home() {
                 <div className="glass-card bg-purple-500/5">
                   <h4 className="text-xs font-black text-purple-400 uppercase mb-4 tracking-widest">Master Reasoning</h4>
                   <p className="text-sm text-gray-300 leading-relaxed font-medium">{result.reasoning}</p>
+                  {result.conflictResolution && (
+                    <div className="mt-4 pt-4 border-t border-purple-500/20">
+                      <h5 className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2">⚔️ Council Conflict Resolution</h5>
+                      <p className="text-sm text-gray-400 italic leading-relaxed">{result.conflictResolution}</p>
+                    </div>
+                  )}
                 </div>
                 
                 {challenges && (
@@ -799,6 +805,69 @@ export default function Home() {
                         </div>
                      ))}
                   </div>
+               </section>
+             )}
+
+             {/* V.7 Failure Scenarios */}
+             {rawData.p7?.parsed?.failureScenarios && (
+               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.95s' }}>
+                  <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
+                     <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">⚠</span>
+                     FAILURE SCENARIOS: TOP DEATH VECTORS
+                  </h3>
+                  {rawData.p7.parsed.mostLikelyDeathCause && (
+                    <div className="glass-card !bg-red-500/5 border-red-500/30 flex items-start gap-4">
+                       <span className="text-3xl">💀</span>
+                       <div>
+                          <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-1">Most Likely Death Cause</span>
+                          <p className="text-lg text-white font-bold print:text-black">{renderSafe(rawData.p7.parsed.mostLikelyDeathCause)}</p>
+                       </div>
+                    </div>
+                  )}
+                  <div className="grid gap-4">
+                    {rawData.p7.parsed.failureScenarios.map((f: any, i: number) => (
+                      <div key={i} className="glass-card border-l-4 border-red-500 !bg-red-500/5">
+                         <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex items-center gap-3">
+                               <span className="w-8 h-8 flex-shrink-0 bg-red-500/20 rounded-lg flex items-center justify-center text-red-400 font-black text-sm">#{f.rank || i + 1}</span>
+                               <h4 className="font-black text-white text-lg print:text-black">{renderSafe(f.name)}</h4>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                 f.impact === 'fatal' ? 'bg-red-500/20 text-red-400' :
+                                 f.impact === 'severe' ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'
+                               }`}>{f.impact || 'unknown'}</span>
+                            </div>
+                         </div>
+                         {f.trigger && (
+                            <div className="p-2 bg-black/20 rounded-lg mb-3 border border-red-500/10">
+                               <span className="text-[9px] text-red-400 font-black uppercase">Trigger: </span>
+                               <span className="text-xs text-gray-300">{renderSafe(f.trigger)}</span>
+                            </div>
+                         )}
+                         <p className="text-sm text-gray-300 mb-3 italic">{renderSafe(f.scenario)}</p>
+                         <div className="flex items-center gap-3 mb-3">
+                            <span className="text-[10px] text-gray-500 font-black uppercase">Probability</span>
+                            <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                               <div className={`h-full transition-all ${Number(f.probability) >= 70 ? 'bg-red-500' : Number(f.probability) >= 40 ? 'bg-orange-500' : 'bg-yellow-500'}`} style={{ width: `${f.probability || 50}%` }} />
+                            </div>
+                            <span className="text-xs font-black text-red-400">{f.probability || '?'}%</span>
+                         </div>
+                         {f.mitigation && (
+                            <div className="pt-3 border-t border-red-500/10">
+                               <span className="text-[10px] text-green-400 font-black uppercase">💉 Mitigation: </span>
+                               <span className="text-xs text-gray-300">{renderSafe(f.mitigation)}</span>
+                            </div>
+                         )}
+                      </div>
+                    ))}
+                  </div>
+                  {rawData.p7.parsed.founderTrap && (
+                    <div className="glass-card !bg-orange-500/5 border-orange-500/30">
+                       <span className="text-[10px] text-orange-400 font-black uppercase tracking-widest block mb-2">🪤 The Founder Trap</span>
+                       <p className="text-sm text-gray-300 italic">"{renderSafe(rawData.p7.parsed.founderTrap)}"</p>
+                    </div>
+                  )}
                </section>
              )}
 

@@ -29,5 +29,8 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  return await thinkDeep([
+    { role: 'system', content: 'You are the "Anthropological Skeptic." Your job is to validate if the problem being solved is actually a "Hair on Fire" pain point or just a minor inconvenience. Be brutally honest.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 }
