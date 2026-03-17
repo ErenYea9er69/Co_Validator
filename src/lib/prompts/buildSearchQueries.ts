@@ -50,3 +50,4 @@ Return a JSON object:
 
   return thinkFast(messages, { jsonMode: true, temperature: 0.8 });
 }
+
