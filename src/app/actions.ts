@@ -15,6 +15,8 @@ import { preMortemSimulation } from '@/lib/prompts/preMortemSimulation';
 import { generateProjections } from '@/lib/prompts/generateProjections';
 import { generateBlueprint } from '@/lib/prompts/generateBlueprint';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
+import { coronerReport } from '@/lib/prompts/coronerReport';
+import { founderFit } from '@/lib/prompts/founderFit';
 import { retryWithBackoff } from '@/lib/retryHandler';
 
 function safeJsonParse(text: string, fallback: any = {}): any {
@@ -106,18 +108,31 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
 
   let extraData: any = {};
   if (avgScore >= 65) {
-    // Idea is "Worth It" -> Generate Projections & Blueprint
-    const [projectionsRaw, blueprintRaw] = await Promise.all([
+    // Idea is "Worth It" -> Generate Projections, Blueprint, Coroner, and Founder Fit
+    const [projectionsRaw, blueprintRaw, coronerRaw, founderRaw] = await Promise.all([
       generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
-      generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse))
+      generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
+      coronerReport(JSON.stringify(idea), JSON.stringify(context)),
+      founderFit(JSON.stringify(idea), founderDNA)
     ]);
     extraData.projections = safeJsonParse(projectionsRaw);
     extraData.blueprint = safeJsonParse(blueprintRaw);
+    extraData.coronerReport = safeJsonParse(coronerRaw);
+    extraData.founderAlignment = safeJsonParse(founderRaw);
   } else {
     // Idea is "Needs Pivot" -> Generate Pivots
     const pivotRaw = await pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse));
     extraData.pivots = safeJsonParse(pivotRaw);
   }
 
+  // Pass raw research context for the "Evidence Vault"
+  extraData.evidenceVault = context;
+
   return { ...parsed, ...extraData };
+}
+
+export async function runStressTest(idea: string, change: string, currentContext: any) {
+  const prompt = `Perform a high-velocity stress test on this pivot/change: "${change}" for the idea "${idea}". How does it change the winnability? Return JSON { "impact": "Positive/Negative", "delta": number, "logic": "reasoning" }`;
+  const raw = await thinkFast([{ role: 'user', content: prompt }], { jsonMode: true });
+  return safeJsonParse(raw);
 }

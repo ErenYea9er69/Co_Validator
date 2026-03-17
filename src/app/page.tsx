@@ -25,6 +25,9 @@ export default function Home() {
   const [result, setResult] = useState<any>(null);
   const [showFullReport, setShowFullReport] = useState(false);
   const [challenges, setChallenges] = useState<any>(null);
+  const [stressTestInput, setStressTestInput] = useState('');
+  const [stressTestResult, setStressTestResult] = useState<any>(null);
+  const [showVault, setShowVault] = useState(false);
 
   // Store intermediate results to populate the full report
   const [rawData, setRawData] = useState<any>({});
@@ -46,6 +49,7 @@ export default function Home() {
     setChallenges(null);
     setRawData({});
     setShowFullReport(false);
+    setStressTestResult(null);
     setLogs(['Initiating engines...']);
     
     try {
@@ -162,7 +166,7 @@ export default function Home() {
         )}
 
         {/* Surface Level Warning */}
-        {result?.dataQuality?.isSurfaceLevel && (
+        {result?.dataQuality?.isSurfaceLevel && !showFullReport && (
           <div className="max-w-4xl mx-auto mb-12 glass-card border-red-500 animate-bounce-subtle">
              <div className="flex gap-4 items-center mb-4">
                 <span className="text-4xl">⚠️</span>
@@ -386,14 +390,67 @@ export default function Home() {
           </div>
         )}
 
-        {/* FULL DOSSIER VIEW */}
+         {/* FULL DOSSIER VIEW */}
         {result && showFullReport && (
-          <div className="animate-fade-in space-y-20 pb-24 dossier-view">
-             <div className="text-center mb-24 animate-pulse-slow">
-                <h2 className="text-7xl font-black mb-4 uppercase tracking-tighter text-white">DOSSIER: {idea.name}</h2>
-                <div className="h-1 w-32 bg-purple-500 mx-auto mb-6" />
-                <p className="text-gray-500 uppercase tracking-[1em] text-sm font-black">Confidential Level 4 Audit</p>
+          <div className="animate-fade-in space-y-20 pb-24 dossier-view relative">
+             {/* BENTO GRID HEADER */}
+             <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-auto md:h-[400px]">
+                <div className="md:col-span-2 md:row-span-2 glass-card flex flex-col justify-center p-12 bg-purple-500/5 border-purple-500/30">
+                   <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-white leading-none">DOSSIER: {idea.name}</h2>
+                   <div className="h-1 w-20 bg-purple-500 mb-6" />
+                   <p className="text-gray-500 uppercase tracking-widest text-xs font-black">Confidential Level 4 Audit</p>
+                </div>
+                <div className="glass-card flex flex-col items-center justify-center !bg-white/5 border-white/10">
+                   <span className="text-[10px] text-gray-500 uppercase font-black mb-1">Founder Fit</span>
+                   <span className="text-4xl font-black text-white">{result.founderAlignment?.alignmentScore || "???"}%</span>
+                </div>
+                <div className="glass-card flex flex-col items-center justify-center !bg-white/5 border-white/10">
+                   <span className="text-[10px] text-gray-500 uppercase font-black mb-1">Burn Risk</span>
+                   <span className={`text-xl font-black uppercase ${result.founderAlignment?.burnRisk === 'High' ? 'text-red-500' : 'text-green-400'}`}>
+                      {result.founderAlignment?.burnRisk || "Analyzing"}
+                   </span>
+                </div>
+                <div className="md:col-span-2 glass-card flex items-center gap-6 !bg-white/5 border-white/10">
+                   <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30 text-2xl">🧬</div>
+                   <p className="text-sm text-gray-400 leading-relaxed italic pr-4">"{result.founderAlignment?.brutalTruth || "Finalizing alignment map..."}"</p>
+                </div>
              </div>
+
+             {/* Evidence Vault Toggle */}
+             <button 
+                onClick={() => setShowVault(true)}
+                className="fixed right-8 bottom-8 z-50 px-6 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 border-4 border-black group"
+             >
+                <span className="bg-black text-white w-5 h-5 flex items-center justify-center rounded-full group-hover:rotate-12 transition-transform">i</span>
+                Evidence Vault
+             </button>
+
+             {/* Sliding Vault Panel */}
+             {showVault && (
+               <div className="fixed inset-0 z-[100] flex justify-end">
+                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowVault(false)} />
+                  <div className="w-full max-w-xl h-full bg-[#0a0a0a] border-l border-white/10 p-12 overflow-y-auto animate-slide-in-right relative">
+                     <button onClick={() => setShowVault(false)} className="absolute top-8 right-8 text-gray-500 hover:text-white font-black">CLOSE [X]</button>
+                     <h3 className="text-3xl font-black text-white mb-8 underline decoration-purple-500">THE EVIDENCE VAULT</h3>
+                     <div className="space-y-12">
+                        {Object.entries(result.evidenceVault || {}).map(([phase, data]: any) => (
+                           <div key={phase} className="space-y-4">
+                              <h4 className="text-xs font-black text-purple-400 uppercase tracking-[0.3em]">{phase.replace(/_/g, ' ')}</h4>
+                              <div className="grid gap-3">
+                                 {data.map((res: any, idx: number) => (
+                                    <div key={idx} className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/20 transition-all">
+                                       <p className="text-[10px] text-gray-500 mb-1 uppercase font-bold">{res.domain || "Source"}</p>
+                                       <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-white hover:text-purple-400 leading-tight block mb-2">{res.title}</a>
+                                       <p className="text-xs text-gray-400 line-clamp-2 italic">"{res.content || res.snippet}"</p>
+                                    </div>
+                                 ))}
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+               </div>
+             )}
 
              {/* I. Problem & Evidence Analysis */}
              <section className="space-y-8 animate-slide-up">
@@ -451,7 +508,7 @@ export default function Home() {
                 </div>
              </section>
 
-             {/* III. Feasibility dossier */}
+             {/* III. Execution Dossier */}
              <section className="space-y-8 animate-slide-up" style={{ animationDelay: '0.4s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">III</span>
@@ -480,7 +537,7 @@ export default function Home() {
                 </div>
              </section>
 
-             {/* IV. Economics sandbox */}
+             {/* IV. Economics Sandbox */}
              <section className="space-y-8 animate-slide-up" style={{ animationDelay: '0.6s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IV</span>
@@ -490,13 +547,13 @@ export default function Home() {
                     {Object.entries(result.unitEconomicsReality || {}).map(([key, val]) => (
                       <div key={key} className="glass-card text-center !bg-white/5 border-purple-500/10 hover:border-purple-500/30 transition-all">
                         <div className="text-[10px] text-gray-500 uppercase mb-2 font-black tracking-widest">{key}</div>
-                        <div className="text-3xl font-black text-purple-400">{String(val)}</div>
+                        <div className="text-2xl font-black text-purple-400">{String(val)}</div>
                       </div>
                     ))}
                 </div>
              </section>
 
-              {/* V. Angel of Death Scenarios */}
+             {/* V. Angel of Death Scenarios */}
              <section className="space-y-8 animate-slide-up" style={{ animationDelay: '0.8s' }}>
                 <h3 className="text-3xl font-black text-orange-500 flex items-center gap-4">
                    <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30 underline decoration-orange-500/50">V</span>
@@ -531,7 +588,6 @@ export default function Home() {
                   <div className="glass-card !bg-green-500/5 border-green-500/20">
                     <p className="text-sm text-gray-400 mb-8 italic">{result.projections.summary}</p>
                     <div className="h-64 w-full relative group">
-                      {/* Simple SVG Line Chart */}
                       <svg viewBox="0 0 1200 300" className="w-full h-full overflow-visible">
                         <defs>
                           <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
@@ -539,26 +595,14 @@ export default function Home() {
                             <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
                           </linearGradient>
                         </defs>
-                        {/* Area */}
                         <path 
                           d={`M 0 300 ${result.projections.dataPoints.map((p: any, i: number) => `L ${i * 109} ${300 - (p.revenue / Math.max(...result.projections.dataPoints.map((dp:any) => dp.revenue || 1))) * 250}`).join(' ')} L 1100 300 Z`}
                           fill="url(#lineGrad)"
                         />
-                        {/* Line */}
                         <path 
                           d={`M 0 300 ${result.projections.dataPoints.map((p: any, i: number) => `L ${i * 109} ${300 - (p.revenue / Math.max(...result.projections.dataPoints.map((dp:any) => dp.revenue || 1))) * 250}`).join(' ')}`}
-                          fill="none" 
-                          stroke="#22c55e" 
-                          strokeWidth="4"
-                          className="drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]"
+                          fill="none" stroke="#22c55e" strokeWidth="4" className="drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]"
                         />
-                        {/* Points */}
-                        {result.projections.dataPoints.map((p: any, i: number) => (
-                          <g key={i} className="cursor-help hover:opacity-100 opacity-50 transition-all">
-                            <circle cx={i * 109} cy={300 - (p.revenue / Math.max(...result.projections.dataPoints.map((dp:any) => dp.revenue || 1))) * 250} r="6" fill="#22c55e" />
-                            <text x={i * 109} y="320" fill="#6b7280" fontSize="12" textAnchor="middle">M{p.month}</text>
-                          </g>
-                        ))}
                       </svg>
                     </div>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
@@ -574,39 +618,39 @@ export default function Home() {
                </section>
              )}
 
-             {/* VII. 10X Upgrade: Tactical Blueprint (Conditional) */}
+             {/* VII. 10X Upgrade: Tactical Blitz Plan (Conditional) */}
              {result.blueprint && (
-               <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1.2s' }}>
-                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
-                     <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VII</span>
-                     TACTICAL 30-DAY BLITZ PLAN
-                  </h3>
-                  <div className="grid lg:grid-cols-4 gap-4">
-                    {result.blueprint.weeks.map((w: any) => (
-                      <div key={w.week} className="glass-card border-t-4 border-purple-500">
-                        <h4 className="text-lg font-black text-white mb-2 underline decoration-purple-500/50">WEEK {w.week}</h4>
-                        <p className="text-[10px] text-purple-400 uppercase font-black mb-4">{w.focus}</p>
-                        <ul className="space-y-4">
-                          {w.tasks.map((t: any, idx: number) => (
-                            <li key={idx} className="group cursor-pointer">
-                              <div className="flex gap-3">
-                                <span className="w-5 h-5 flex-shrink-0 border border-white/20 rounded flex items-center justify-center text-[10px] group-hover:bg-purple-500 group-hover:border-purple-500 transition-all font-bold">{t.day}</span>
-                                <p className="text-xs text-gray-300 leading-tight group-hover:text-white transition-colors">{t.task}</p>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-               </section>
+                <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1.2s' }}>
+                   <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
+                      <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VII</span>
+                      TACTICAL 30-DAY BLITZ PLAN
+                   </h3>
+                   <div className="grid lg:grid-cols-4 gap-4">
+                      {result.blueprint.weeks.map((w: any) => (
+                        <div key={w.week} className="glass-card border-t-4 border-purple-500">
+                           <h4 className="text-lg font-black text-white mb-2 underline decoration-purple-500/50">WEEK {w.week}</h4>
+                           <p className="text-[10px] text-purple-400 uppercase font-black mb-4">{w.focus}</p>
+                           <ul className="space-y-4">
+                              {w.tasks.map((t: any, idx: number) => (
+                                <li key={idx} className="group cursor-pointer">
+                                   <div className="flex gap-3">
+                                      <span className="w-5 h-5 flex-shrink-0 border border-white/20 rounded flex items-center justify-center text-[10px] group-hover:bg-purple-500 group-hover:border-purple-500 transition-all font-bold">{t.day}</span>
+                                      <p className="text-xs text-gray-300 leading-tight group-hover:text-white transition-colors">{t.task}</p>
+                                   </div>
+                                </li>
+                              ))}
+                           </ul>
+                        </div>
+                      ))}
+                   </div>
+                </section>
              )}
 
-             {/* VIII. 10X Upgrade: Pivot Engine (Conditional) */}
+             {/* VIII. 10X Upgrade: Strategic Pivot Engine (Conditional) */}
              {result.pivots && (
-               <section className="space-y-8 animate-slide-up" style={{ animationDelay: '0.5s' }}>
+               <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1.4s' }}>
                   <div className="p-1 text-center bg-red-500/20 rounded-t-2xl border-t border-x border-red-500/30">
-                    <p className="text-[10px] font-black tracking-[1em] uppercase py-2">Simulation Failure Detected — Initiating Pivot Engine</p>
+                    <p className="text-[10px] font-black tracking-[1em] uppercase py-2">Failure Vector Detected — Initiating Pivot Engine</p>
                   </div>
                   <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">VIII</span>
@@ -615,12 +659,12 @@ export default function Home() {
                   <div className="grid lg:grid-cols-3 gap-6">
                     {result.pivots.map((p: any, i: number) => (
                       <div key={i} className="glass-card border-l-4 border-red-500 !bg-red-500/5 hover:!bg-red-500/10 transition-all">
-                        <h4 className="text-xl font-black text-white mb-2">{p.name}</h4>
-                        <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-black uppercase mb-4 inline-block">{p.shift}</span>
-                        <p className="text-sm text-gray-300 mb-4 italic font-medium">"{p.logic}"</p>
+                        <h4 className="text-xl font-black text-white mb-2">{renderSafe(p.name)}</h4>
+                        <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-black uppercase mb-4 inline-block">{renderSafe(p.shift)}</span>
+                        <p className="text-sm text-gray-300 mb-4 italic font-medium">"{renderSafe(p.logic)}"</p>
                         <div className="pt-4 border-t border-red-500/20">
                           <p className="text-[10px] text-red-400 uppercase font-black mb-1">New Opportunity</p>
-                          <p className="text-xs text-white font-bold">{p.opportunity}</p>
+                          <p className="text-xs text-white font-bold">{renderSafe(p.opportunity)}</p>
                         </div>
                       </div>
                     ))}
@@ -628,10 +672,80 @@ export default function Home() {
                </section>
              )}
 
-              {/* IX. Final Committee Resolution */}
-             <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1s' }}>
+             {/* IX. 10X Upgrade: Coroner's Case Files (Conditional) */}
+             {result.coronerReport && (
+               <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1.6s' }}>
+                  <h3 className="text-3xl font-black text-gray-400 flex items-center gap-4">
+                     <span className="bg-white/10 w-10 h-10 flex items-center justify-center rounded-lg border border-white/30 font-serif">†</span>
+                     THE CORONER'S CASE FILES
+                  </h3>
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {result.coronerReport.map((c: any, i: number) => (
+                      <div key={i} className="glass-card border-l-4 border-gray-600 !bg-white/5 hover:!bg-white/10 transition-all">
+                        <h4 className="text-xl font-black text-white mb-2 uppercase">{renderSafe(c.company)}</h4>
+                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg mb-4">
+                          <p className="text-[10px] text-red-500 uppercase font-bold mb-1">Fatal Mistake</p>
+                          <p className="text-xs text-red-100 font-medium leading-tight">{renderSafe(c.mistake)}</p>
+                        </div>
+                        <p className="text-sm text-gray-300 mb-6 italic">
+                          <span className="text-gray-500 font-bold uppercase text-[9px] block mb-1">Echo Logic:</span>
+                          "{renderSafe(c.echo)}"
+                        </p>
+                        <div className="pt-4 border-t border-white/5">
+                          <p className="text-[10px] text-green-400 uppercase font-black mb-1">The Vaccine</p>
+                          <p className="text-xs text-white font-bold">{renderSafe(c.vaccine)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+               </section>
+             )}
+
+             {/* X. 10X Upgrade: Stress Test Module */}
+             <section className="space-y-8 animate-slide-up" style={{ animationDelay: '1.8s' }}>
+                <h3 className="text-3xl font-black text-orange-500/50 flex items-center gap-4">
+                   <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">X</span>
+                   INTERACTIVE STRESS TEST
+                </h3>
+                <div className="glass-card border-2 border-dashed border-white/10 !bg-transparent text-center p-12">
+                   <h4 className="text-xl font-black text-white mb-4">Challenge the Audit</h4>
+                   <p className="text-sm text-gray-400 mb-8 max-w-xl mx-auto">Found a pivot? Got more funding? Propose a change and see how it shifts your survival probability.</p>
+                   <div className="flex gap-4 max-w-2xl mx-auto">
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 'What if I pivot to B2B enterprise sales?'"
+                        value={stressTestInput}
+                        onChange={(e) => setStressTestInput(e.target.value)}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-6 py-4 text-white font-black uppercase text-xs focus:border-orange-500 transition-all"
+                      />
+                      <button 
+                        onClick={async () => {
+                           const res = await actions.runStressTest(idea.name, stressTestInput, result.evidenceVault);
+                           setStressTestResult(res);
+                        }}
+                        className="px-8 bg-orange-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-orange-400 transition-all font-bold"
+                      >
+                        Fire Stress Test
+                      </button>
+                   </div>
+                   {stressTestResult && (
+                      <div className="mt-8 p-6 bg-white/5 rounded-2xl border border-orange-500/30 animate-scale-in text-left">
+                         <div className="flex justify-between items-center mb-4">
+                            <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${stressTestResult.impact === 'Positive' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-500'}`}>
+                               IMPACT: {stressTestResult.impact}
+                            </span>
+                            <span className="text-2xl font-black text-white">Delta: {stressTestResult.delta > 0 ? '+' : ''}{stressTestResult.delta}%</span>
+                         </div>
+                         <p className="text-sm text-gray-300 leading-relaxed italic">"{renderSafe(stressTestResult.logic)}"</p>
+                      </div>
+                   )}
+                </div>
+             </section>
+
+              {/* XI. Final Committee Resolution */}
+             <section className="space-y-8 animate-slide-up" style={{ animationDelay: '2s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
-                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IX</span>
+                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">XI</span>
                    FINAL COMMITTEE RESOLUTION
                 </h3>
                 <div className="glass-card !bg-purple-500/5 border-purple-500/30">
@@ -652,7 +766,7 @@ export default function Home() {
              {/* Footer Button */}
              <div className="pt-12 text-center print:hidden pb-20">
                 <button 
-                  onClick={() => {setResult(null); setPhase(-1); setShowFullReport(false); setChallenges(null); setRawData({});}}
+                  onClick={() => {setResult(null); setPhase(-1); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null);}}
                   className="px-16 py-5 border border-white/10 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 transition-all uppercase text-xs font-black tracking-[0.5em] hover:border-purple-500/40"
                 >
                   Terminate Audit Instance
