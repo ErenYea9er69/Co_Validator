@@ -144,9 +144,18 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
 
 // Stress Test with full audit context
 export async function runStressTest(idea: string, change: string, auditSummary: { scores: any; verdict: string; reasoning: string; compositeScores: any }) {
-  const prompt = `You are stress-testing a proposed change to a startup idea.
+  const systemPrompt = `You are the "Stress Test Engine", an AI explicitly designed to re-evaluate startup metrics based on a user's proposed pivot or change.
+You MUST respond with valid JSON matching this exact schema:
+{
+  "impact": "Positive" | "Negative" | "Neutral",
+  "delta": number, // an integer from -30 to +30 representing the percentage point shift in overall winnability
+  "logic": "string", // 2-3 sentences explaining WHY this change shifts the score
+  "dimensionShifts": [
+    { "dimension": "name", "from": current_score, "to": new_score, "reason": "why" }
+  ]
+}`;
 
-IDEA: "${idea}"
+  const userPrompt = `IDEA: "${idea}"
 PROPOSED CHANGE: "${change}"
 
 CURRENT AUDIT STATE:
@@ -155,17 +164,11 @@ CURRENT AUDIT STATE:
 - Reasoning: ${auditSummary.reasoning}
 - Dimension Scores: ${JSON.stringify(auditSummary.scores)}
 
-TASK: Evaluate how the proposed change would shift the startup's winnability relative to its CURRENT scores. Be specific about which dimensions improve or degrade.
+TASK: Evaluate how the proposed change would shift the startup's winnability relative to its CURRENT scores. Be specific about which dimensions improve or degrade. Return ONLY the requested JSON.`;
 
-Return JSON:
-{
-  "impact": "Positive" or "Negative",
-  "delta": number (-30 to +30, the percentage point shift in overall winnability),
-  "logic": "2-3 sentences explaining WHY this change shifts the score, referencing specific dimensions",
-  "dimensionShifts": [
-    { "dimension": "name", "from": current, "to": projected, "reason": "why" }
-  ]
-}`;
-  const raw = await thinkFast([{ role: 'user', content: prompt }], { jsonMode: true });
+  const raw = await thinkFast([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt }
+  ], { jsonMode: true });
   return safeJsonParse(raw);
 }
