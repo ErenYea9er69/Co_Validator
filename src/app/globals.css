@@ -102,7 +102,7 @@ body {
   }
 
   /* Hide interactive elements */
-  button, .print\\:hidden, [class*="print:hidden"] {
+  button, [data-print-hide] {
     display: none !important;
   }
 

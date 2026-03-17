@@ -83,8 +83,9 @@ export async function runPhase6Differentiation(idea: any, p2Raw: string) {
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-export async function runPreMortem(idea: any, founderDNA: any) {
-  const raw = await preMortemSimulation(JSON.stringify(idea), "Deep Context", founderDNA, []);
+// FIX: Pre-Mortem now receives actual accumulated phase data
+export async function runPreMortem(idea: any, founderDNA: any, phaseResearchSummary: string) {
+  const raw = await preMortemSimulation(JSON.stringify(idea), phaseResearchSummary, founderDNA, []);
   return safeJsonParse(raw);
 }
 
@@ -103,28 +104,54 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
     : 0;
 
   let extraData: any = {};
+
+  // FIX: Coroner Report ALWAYS runs — failing ideas need failure history more
+  const coronerRaw = await coronerReport(JSON.stringify(idea), JSON.stringify(context));
+  extraData.coronerReport = safeJsonParse(coronerRaw);
+
   if (avgScore >= 65) {
-    const [projectionsRaw, blueprintRaw, coronerRaw] = await Promise.all([
+    // Good idea → Projections + Blueprint
+    const [projectionsRaw, blueprintRaw] = await Promise.all([
       generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
       generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
-      coronerReport(JSON.stringify(idea), JSON.stringify(context)),
     ]);
     extraData.projections = safeJsonParse(projectionsRaw);
     extraData.blueprint = safeJsonParse(blueprintRaw);
-    extraData.coronerReport = safeJsonParse(coronerRaw);
   } else {
+    // Failing idea → Pivots
     const pivotRaw = await pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse));
     extraData.pivots = safeJsonParse(pivotRaw);
   }
 
-  // Pass the properly collected evidence (raw Tavily results only)
   extraData.evidenceVault = collectedEvidence;
 
   return { ...parsed, ...extraData };
 }
 
-export async function runStressTest(idea: string, change: string, currentContext: any) {
-  const prompt = `Perform a high-velocity stress test on this pivot/change: "${change}" for the idea "${idea}". How does it change the winnability? Return JSON { "impact": "Positive/Negative", "delta": number, "logic": "reasoning" }`;
+// FIX: Stress Test now receives full audit context for accurate delta calculation
+export async function runStressTest(idea: string, change: string, auditSummary: { scores: any; verdict: string; reasoning: string; compositeScores: any }) {
+  const prompt = `You are stress-testing a proposed change to a startup idea.
+
+IDEA: "${idea}"
+PROPOSED CHANGE: "${change}"
+
+CURRENT AUDIT STATE:
+- Verdict: ${auditSummary.verdict}
+- Composite Scores: ${JSON.stringify(auditSummary.compositeScores)}
+- Reasoning: ${auditSummary.reasoning}
+- Dimension Scores: ${JSON.stringify(auditSummary.scores)}
+
+TASK: Evaluate how the proposed change would shift the startup's winnability relative to its CURRENT scores. Be specific about which dimensions improve or degrade.
+
+Return JSON:
+{
+  "impact": "Positive" or "Negative",
+  "delta": number (-30 to +30, the percentage point shift in overall winnability),
+  "logic": "2-3 sentences explaining WHY this change shifts the score, referencing specific dimensions",
+  "dimensionShifts": [
+    { "dimension": "name", "from": current, "to": projected, "reason": "why" }
+  ]
+}`;
   const raw = await thinkFast([{ role: 'user', content: prompt }], { jsonMode: true });
   return safeJsonParse(raw);
 }

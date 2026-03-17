@@ -62,7 +62,7 @@ export default function Home() {
     return String(val);
   };
 
-  // ─── Audit orchestrator with per-phase error resilience ───
+  // ─── Audit orchestrator with PARALLELIZED phases + error resilience ───
   const startAudit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setResult(null); setChallenges(null); setRawData({}); setShowFullReport(false);
@@ -72,82 +72,68 @@ export default function Home() {
     let p1: any = null, p2: any = null, p3: any = null, p4: any = null, p5: any = null, p6: any = null, p7: any = null;
     let interrogationData: any = null, preMortemData: any = null;
     const failed: string[] = [];
+    const founderStub = { skills: ['General'], budget: 'Bootstrap', timeCommitment: 'Full-time' };
 
-    // Phase 1
-    try {
-      setPhase(1); setPhaseName('Problem Reality'); addLog('Searching for real-world pain markers...');
-      p1 = await actions.runPhase1Problem(idea, "Initial Scan");
-      setRawData((prev: any) => ({ ...prev, p1 }));
-      if (p1.searchResults) evidence['problem_evidence'] = p1.searchResults;
-      addLog('Problem reality check complete.');
-    } catch (err) { failed.push('Problem Reality'); addLog('⚠️ Phase 1 failed — continuing...'); }
+    // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5) ═══
+    setPhase(1); setPhaseName('Parallel Scan (4 phases)'); addLog('Launching parallel research wave...');
+    const wave1 = await Promise.allSettled([
+      actions.runPhase1Problem(idea, "Initial Scan"),
+      actions.runPhase2Competitors(idea, idea.competitorsInfo),
+      actions.runPhase4Feasibility(idea, founderStub),
+      actions.runPhase5Market(idea),
+    ]);
 
-    // Phase 2
-    try {
-      setPhase(2); setPhaseName('Competitor Investigation'); addLog('Scanning the competitive landscape...');
-      p2 = await actions.runPhase2Competitors(idea, idea.competitorsInfo);
-      setRawData((prev: any) => ({ ...prev, p2 }));
-      if (p2.searchResults) evidence['competitor_scan'] = p2.searchResults;
-      addLog('Competitor scan complete.');
-    } catch (err) { failed.push('Competitor Investigation'); addLog('⚠️ Phase 2 failed — continuing...'); }
+    if (wave1[0].status === 'fulfilled') { p1 = wave1[0].value; setRawData((prev: any) => ({ ...prev, p1 })); if (p1.searchResults) evidence['problem_evidence'] = p1.searchResults; addLog('Problem reality ✓'); }
+    else { failed.push('Problem Reality'); addLog('⚠️ Problem Reality failed'); }
 
-    // Phase 3
-    try {
-      setPhase(3); setPhaseName('Competition Saturation'); addLog('Analyzing market density...');
-      p3 = await actions.runPhase3Competition(idea, p2?.raw || '');
-      setRawData((prev: any) => ({ ...prev, p3 }));
-      addLog('Saturation analysis complete.');
-    } catch (err) { failed.push('Competition Saturation'); addLog('⚠️ Phase 3 failed — continuing...'); }
+    if (wave1[1].status === 'fulfilled') { p2 = wave1[1].value; setRawData((prev: any) => ({ ...prev, p2 })); if (p2.searchResults) evidence['competitor_scan'] = p2.searchResults; addLog('Competitors ✓'); }
+    else { failed.push('Competitor Investigation'); addLog('⚠️ Competitors failed'); }
 
-    // Phase 4
-    try {
-      setPhase(4); setPhaseName('Build Feasibility'); addLog('Evaluating complexity...');
-      p4 = await actions.runPhase4Feasibility(idea, { skills: ['General'], budget: 'Bootstrap', timeCommitment: 'Full-time' });
-      setRawData((prev: any) => ({ ...prev, p4 }));
-      addLog('Feasibility study complete.');
-    } catch (err) { failed.push('Build Feasibility'); addLog('⚠️ Phase 4 failed — continuing...'); }
+    if (wave1[2].status === 'fulfilled') { p4 = wave1[2].value; setRawData((prev: any) => ({ ...prev, p4 })); addLog('Feasibility ✓'); }
+    else { failed.push('Build Feasibility'); addLog('⚠️ Feasibility failed'); }
 
-    // Phase 5
-    try {
-      setPhase(5); setPhaseName('Market & Monetization'); addLog('Simulating pricing and unit economics...');
-      p5 = await actions.runPhase5Market(idea);
-      setRawData((prev: any) => ({ ...prev, p5 }));
-      if (p5.searchResults) evidence['pricing_research'] = p5.searchResults;
-      addLog('Market simulation complete.');
-    } catch (err) { failed.push('Market & Monetization'); addLog('⚠️ Phase 5 failed — continuing...'); }
+    if (wave1[3].status === 'fulfilled') { p5 = wave1[3].value; setRawData((prev: any) => ({ ...prev, p5 })); if (p5.searchResults) evidence['pricing_research'] = p5.searchResults; addLog('Market ✓'); }
+    else { failed.push('Market & Monetization'); addLog('⚠️ Market failed'); }
 
-    // Phase 6
-    try {
-      setPhase(6); setPhaseName('Differentiation'); addLog('Hunting for asymmetric advantages...');
-      p6 = await actions.runPhase6Differentiation(idea, p2?.raw || '');
-      setRawData((prev: any) => ({ ...prev, p6 }));
-      addLog('Differentiation report generated.');
-    } catch (err) { failed.push('Differentiation'); addLog('⚠️ Phase 6 failed — continuing...'); }
+    // ═══ WAVE 2: Phases dependent on P2 (3, 6) in parallel ═══
+    setPhase(3); setPhaseName('Competitive Deep-Dive'); addLog('Analyzing saturation + differentiation...');
+    const wave2 = await Promise.allSettled([
+      actions.runPhase3Competition(idea, p2?.raw || ''),
+      actions.runPhase6Differentiation(idea, p2?.raw || ''),
+    ]);
 
-    // Interrogation
-    try {
-      setPhase(6.5); setPhaseName('Deep Interrogation'); addLog('Consulting pattern matching...');
-      interrogationData = await actions.runInterrogation(idea, { skills: ['General'], budget: 'Bootstrap', timeCommitment: 'Full-time' });
-      addLog('Deep risks identified.');
-    } catch (err) { failed.push('Interrogation'); addLog('⚠️ Interrogation failed — continuing...'); }
+    if (wave2[0].status === 'fulfilled') { p3 = wave2[0].value; setRawData((prev: any) => ({ ...prev, p3 })); addLog('Saturation ✓'); }
+    else { failed.push('Competition Saturation'); addLog('⚠️ Saturation failed'); }
 
-    // Pre-Mortem
-    try {
-      setPhase(6.8); setPhaseName('Survival Simulation'); addLog('Simulating critical failure vectors...');
-      preMortemData = await actions.runPreMortem(idea, { skills: ['General'], budget: 'Bootstrap', timeCommitment: 'Full-time' });
-      setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
-      addLog('Failure vectors mapped.');
-    } catch (err) { failed.push('Pre-Mortem'); addLog('⚠️ Pre-Mortem failed — continuing...'); }
+    if (wave2[1].status === 'fulfilled') { p6 = wave2[1].value; setRawData((prev: any) => ({ ...prev, p6 })); addLog('Differentiation ✓'); }
+    else { failed.push('Differentiation'); addLog('⚠️ Differentiation failed'); }
 
-    // Phase 7
+    // ═══ WAVE 3: Intelligence (Interrogation + Pre-Mortem with REAL data) ═══
+    const phaseResearchSummary = JSON.stringify({ p1: p1?.parsed, p2: p2?.parsed, p3: p3?.parsed, p4: p4?.parsed, p5: p5?.parsed, p6: p6?.parsed });
+
+    setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running interrogation + survival simulation...');
+    const wave3 = await Promise.allSettled([
+      actions.runInterrogation(idea, founderStub),
+      actions.runPreMortem(idea, founderStub, phaseResearchSummary),
+    ]);
+
+    if (wave3[0].status === 'fulfilled') { interrogationData = wave3[0].value; addLog('Interrogation ✓'); }
+    else { failed.push('Interrogation'); addLog('⚠️ Interrogation failed'); }
+
+    if (wave3[1].status === 'fulfilled') { preMortemData = wave3[1].value; addLog('Pre-Mortem ✓'); }
+    else { failed.push('Pre-Mortem'); addLog('⚠️ Pre-Mortem failed'); }
+
+    setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
+
+    // ═══ Phase 7: Failure scenarios (depends on pre-mortem + all phases) ═══
     try {
       setPhase(7); setPhaseName('Expert Stress Test');
       p7 = await actions.runPhase7Failures(idea, preMortemData, { p1, p2, p3, p4, p5, p6 });
       setRawData((prev: any) => ({ ...prev, p7 }));
-      addLog('Stress test complete.');
-    } catch (err) { failed.push('Expert Stress Test'); addLog('⚠️ Phase 7 failed — continuing...'); }
+      addLog('Stress test ✓');
+    } catch (err) { failed.push('Expert Stress Test'); addLog('⚠️ Phase 7 failed'); }
 
-    // Final Scoring
+    // ═══ Final Scoring ═══
     try {
       setPhase(8); setPhaseName('Final Scoring'); addLog('Synthesizing Master Verdict...');
       const finalResult = await actions.finalizeAudit(idea, interrogationData, preMortemData, { p1, p2, p3, p4, p5, p6, p7 }, null, evidence);
@@ -174,6 +160,7 @@ export default function Home() {
   const problemQ = getInputQuality(idea.problem);
   const solutionQ = getInputQuality(idea.solution);
   const competitorsQ = getInputQuality(idea.competitorsInfo, 50);
+  const monetizationQ = getInputQuality(idea.monetization, 30);
   const overallReady = idea.name.length > 1 && idea.industry.length > 1 && problemQ.level !== 'red' && solutionQ.level !== 'red';
 
   return (
@@ -263,6 +250,25 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Revenue Model */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-sm font-medium text-gray-400">Revenue Model</label>
+                  <span className={`text-[10px] font-black uppercase ${monetizationQ.level === 'green' ? 'text-green-400' : monetizationQ.level === 'yellow' ? 'text-yellow-400' : 'text-red-400'}`}>{monetizationQ.label}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  {['SaaS Subscription', 'Freemium', 'Marketplace / Commission', 'Ads / Sponsorship', 'One-Time Purchase', 'API / Usage-Based'].map((model) => (
+                    <button key={model} type="button" onClick={() => setIdea({ ...idea, monetization: idea.monetization.includes(model) ? idea.monetization.replace(model + '. ', '') : idea.monetization + model + '. ' })}
+                      className={`text-[10px] px-3 py-2 rounded-lg border font-bold uppercase transition-all ${
+                        idea.monetization.includes(model) ? 'bg-purple-500/20 border-purple-500 text-purple-400' : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/30'
+                      }`}>{model}</button>
+                  ))}
+                </div>
+                <input type="text" value={idea.monetization} onChange={(e) => setIdea({...idea, monetization: e.target.value})}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all text-sm"
+                  placeholder="e.g. SaaS $20/mo per seat, freemium tier for individuals" />
+              </div>
+
               {/* Competitors — with quality meter */}
               <div>
                 <div className="flex justify-between items-center mb-2">
@@ -271,7 +277,7 @@ export default function Home() {
                 </div>
                 <textarea value={idea.competitorsInfo} onChange={(e) => setIdea({...idea, competitorsInfo: e.target.value})}
                   className="w-full bg-black/50 border border-white/10 rounded-lg p-3 h-24 focus:border-purple-500 outline-none transition-all resize-none"
-                  placeholder="Who are the incumbents? How will you beat them? What is your revenue model? (e.g. Freemium, SaaS $20/mo)" />
+                  placeholder="Who are the incumbents? How will you beat them?" />
                 <div className="mt-1 h-1 rounded-full bg-white/5 overflow-hidden">
                   <div className={`h-full ${qualityColors[competitorsQ.level]} transition-all duration-500`} style={{ width: `${Math.min(idea.competitorsInfo.length / 1, 100)}%` }} />
                 </div>
@@ -594,6 +600,41 @@ export default function Home() {
                 </div>
              </section>
 
+             {/* V.5. Pressure Test — Interrogation Questions */}
+             {challenges?.interrogation?.questions && challenges.interrogation.questions.length > 0 && (
+               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.9s' }}>
+                  <h3 className="text-3xl font-black text-red-400 flex items-center gap-4">
+                     <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30 text-lg">⚡</span>
+                     PRESSURE TEST: CROSS-EXAMINATION
+                  </h3>
+                  <div className="flex items-center gap-4 mb-2">
+                     <span className="text-[10px] text-red-400 font-black uppercase tracking-widest">Interrogation Intensity</span>
+                     <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-red-800 to-red-500 transition-all" style={{ width: `${challenges.interrogation.pressureLevel || 50}%` }} />
+                     </div>
+                     <span className="text-red-400 font-black text-lg">{challenges.interrogation.pressureLevel || '?'}/100</span>
+                  </div>
+                  <div className="grid gap-6">
+                     {challenges.interrogation.questions.map((q: any, i: number) => (
+                        <div key={i} className="glass-card border-l-4 border-red-500 !bg-red-500/5">
+                           <div className="flex justify-between items-start mb-3">
+                              <span className="text-[10px] bg-red-500/20 text-red-400 px-3 py-1 rounded-full font-black uppercase">{q.category || 'Challenge'}</span>
+                              <span className="text-[10px] text-gray-500 font-mono">Q{i + 1}</span>
+                           </div>
+                           <p className="text-lg font-black text-white leading-tight mb-4 print:text-black">{renderSafe(q.text || q.question)}</p>
+                           <div className="p-3 bg-black/30 rounded-lg border border-red-500/10">
+                              <p className="text-[10px] text-red-400 uppercase font-black mb-1">Conflict Nugget</p>
+                              <p className="text-xs text-gray-300 italic leading-relaxed">"{renderSafe(q.conflictNugget)}"</p>
+                           </div>
+                           {q.reasoning && (
+                              <p className="text-xs text-gray-500 mt-3 italic">Why fatal: {renderSafe(q.reasoning)}</p>
+                           )}
+                        </div>
+                     ))}
+                  </div>
+               </section>
+             )}
+
              {/* VI. Future Sandbox */}
              {result.projections && (
                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1s' }}>
@@ -712,7 +753,12 @@ export default function Home() {
                       <input type="text" placeholder="e.g. 'What if I pivot to B2B enterprise sales?'" value={stressTestInput} onChange={(e) => setStressTestInput(e.target.value)}
                         className="flex-1 bg-white/5 border border-white/10 rounded-xl px-6 py-4 text-white font-black uppercase text-xs focus:border-orange-500 transition-all" />
                       <button onClick={async () => {
-                           const res = await actions.runStressTest(idea.name, stressTestInput, result.evidenceVault);
+                           const res = await actions.runStressTest(idea.name, stressTestInput, {
+                             scores: result.scores,
+                             verdict: result.verdict,
+                             reasoning: result.reasoning,
+                             compositeScores: result.compositeScores,
+                           });
                            setStressTestResult(res);
                         }} className="px-8 bg-orange-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-orange-400 transition-all">
                         Fire
@@ -726,7 +772,17 @@ export default function Home() {
                             </span>
                             <span className="text-2xl font-black text-white">Delta: {stressTestResult.delta > 0 ? '+' : ''}{stressTestResult.delta}%</span>
                          </div>
-                         <p className="text-sm text-gray-300 leading-relaxed italic">"{renderSafe(stressTestResult.logic)}"</p>
+                         <p className="text-sm text-gray-300 leading-relaxed italic mb-4">"{renderSafe(stressTestResult.logic)}"</p>
+                         {stressTestResult.dimensionShifts && (
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
+                               {stressTestResult.dimensionShifts.map((d: any, i: number) => (
+                                  <div key={i} className="p-2 bg-white/5 rounded-lg text-[10px]">
+                                     <span className="text-gray-500 uppercase font-black block">{d.dimension}</span>
+                                     <span className={`font-black ${d.to > d.from ? 'text-green-400' : 'text-red-400'}`}>{d.from} → {d.to}</span>
+                                  </div>
+                               ))}
+                            </div>
+                         )}
                       </div>
                    )}
                 </div>
