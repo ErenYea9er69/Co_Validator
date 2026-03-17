@@ -2,8 +2,7 @@ import { thinkDeep } from '../ai';
 
 export async function finalScoring(
   idea: string, 
-  allPhaseResults: string, 
-  founderDNA: { name: string, skills: string[], bio: string, budget: string, timeCommitment: string } | null
+  allPhaseResults: string
 ): Promise<string> {
   const prompt = `
 You are the "Master Investment Committee." Your job is to synthesize 8 expert reports into a final "Master Investment Verdict."
@@ -14,9 +13,6 @@ ${idea}
 EXPERT PHASE REPORTS:
 ${allPhaseResults}
 
-FOUNDER DNA:
-${JSON.stringify(founderDNA)}
-
 TASK:
 1. **16-Dimension Heatmap**: Score the idea from 1-10 on all standard dimensions.
 2. **COUNCIL CONFLICT RESOLUTION**: Detect where expert reports from different phases fundamentally conflict (e.g. Phase 3: Profit says "Goldmine", but Phase 6: Moat says "Commodity"). If such a conflict exists, trigger a hidden "Inter-Council Debate" to reach a high-confidence resolution before scoring.
@@ -26,7 +22,7 @@ TASK:
 DIMENSIONS:
 Competition Realism, Pain Intensity, Buyer Urgency, Budget Clarity, Ease of MVP, Ease of Distribution, Speed to First Revenue, 
 Retention Potential, Capital Efficiency, Small-Team Feasibility, Defensibility, Expansion, Service Risk, Red Ocean Risk, 
-Founder-Market Fit, Execution Risk.
+Team Execution Risk, Market Timing.
 
 FORMAT:
 Return a JSON object:
@@ -40,7 +36,7 @@ Return a JSON object:
     "cashFlowPotential": 0-100,
     "ventureScalePotential": 0-100,
     "soloFounderFeasibility": 0-100,
-    "founderFit": 0-100,
+    "marketTiming": 0-100,
     "councilDiscord": 0-10
   },
   "dataQuality": {

@@ -2,7 +2,6 @@ import { thinkDeep } from '../ai';
 
 export async function interrogateIdea(
   idea: string,
-  founderDNA: any,
   synthesisRaw: string = "",
   competitors: any[] = [],
   customCriteria?: string
@@ -13,9 +12,6 @@ Do not ask generic questions. Use the provided research results and competitor d
 
 IDEA TO TEST:
 ${idea}
-
-FOUNDER DNA:
-${JSON.stringify(founderDNA)}
 
 MARKET INTELLIGENCE MATRIX:
 ${synthesisRaw}

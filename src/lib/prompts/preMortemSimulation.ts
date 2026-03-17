@@ -3,21 +3,17 @@ import { thinkDeep } from '../ai';
 export async function preMortemSimulation(
   idea: string,
   research: string,
-  founderDNA: any,
   killSignals: any[] = []
 ): Promise<string> {
   const prompt = `
 You are "The Angel of Death" — the world's most cold-blooded startup forensic auditor. 
-Your job is to simulate the catastrophic collapse of this startup idea using hard market data and founder weaknesses.
+Your job is to simulate the catastrophic collapse of this startup idea using hard market data.
 
 IDEA TO AUDIT:
 ${idea}
 
 MARKET INTELLIGENCE MATRIX:
 ${research}
-
-FOUNDER DNA:
-${JSON.stringify(founderDNA)}
 
 KNOWN KILL SIGNALS:
 ${JSON.stringify(killSignals)}

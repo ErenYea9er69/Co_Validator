@@ -16,7 +16,6 @@ import { generateProjections } from '@/lib/prompts/generateProjections';
 import { generateBlueprint } from '@/lib/prompts/generateBlueprint';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
 import { coronerReport } from '@/lib/prompts/coronerReport';
-import { retryWithBackoff } from '@/lib/retryHandler';
 
 function safeJsonParse(text: string, fallback: any = {}): any {
   if (!text) return fallback;
@@ -42,23 +41,32 @@ function safeJsonParse(text: string, fallback: any = {}): any {
   }
 }
 
-export async function runInterrogation(idea: any, founderDNA: any) {
+// FIX: No more founderDNA stubs — interrogation uses market intelligence only
+export async function runInterrogation(idea: any, phaseContext: string) {
   const ideaStr = JSON.stringify(idea);
-  const raw = await interrogateIdea(ideaStr, founderDNA, "Standalone Context", [], "None");
+  const raw = await interrogateIdea(ideaStr, phaseContext, [], "None");
   return safeJsonParse(raw);
 }
 
+// FIX: Pass Tavily answer to prompts as "Research Summary"
 export async function runPhase1Problem(idea: any, initialContext: string) {
   const ideaStr = JSON.stringify(idea);
   const evidence = await verifyProblem(idea.problem, idea.industry);
-  const raw = await validateProblem(ideaStr + "\nCONTEXT: " + initialContext, JSON.stringify(evidence.results));
+  const researchInput = evidence.answer
+    ? `RESEARCH SUMMARY:\n${evidence.answer}\n\nRAW RESULTS:\n${JSON.stringify(evidence.results)}`
+    : JSON.stringify(evidence.results);
+  const raw = await validateProblem(ideaStr + "\nCONTEXT: " + initialContext, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: evidence.results };
 }
 
+// FIX: Pass competitorsInfo to smarter Tavily search + attach Tavily answer
 export async function runPhase2Competitors(idea: any, competitorsInfo: string) {
   const ideaStr = JSON.stringify(idea);
-  const compResults = await searchCompetitors(idea.name, idea.industry);
-  const raw = await validateCompetitors(ideaStr + "\nUSER COMPETITOR INFO: " + competitorsInfo, JSON.stringify(compResults.results));
+  const compResults = await searchCompetitors(idea.name, idea.industry, competitorsInfo);
+  const researchInput = compResults.answer
+    ? `RESEARCH SUMMARY:\n${compResults.answer}\n\nRAW RESULTS:\n${JSON.stringify(compResults.results)}`
+    : JSON.stringify(compResults.results);
+  const raw = await validateCompetitors(ideaStr + "\nUSER COMPETITOR INFO: " + competitorsInfo, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: compResults.results };
 }
 
@@ -67,14 +75,19 @@ export async function runPhase3Competition(idea: any, p2Raw: string) {
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-export async function runPhase4Feasibility(idea: any, founderDNA: any) {
-  const raw = await validateFeasibility(JSON.stringify(idea), JSON.stringify(founderDNA));
+// FIX: No more founderDNA stub — feasibility evaluates idea complexity alone
+export async function runPhase4Feasibility(idea: any) {
+  const raw = await validateFeasibility(JSON.stringify(idea), "Evaluate based on idea complexity and industry standards");
   return { raw, parsed: safeJsonParse(raw) };
 }
 
+// FIX: Pass Tavily answer to market prompt
 export async function runPhase5Market(idea: any) {
   const pricingResults = await searchPricing(idea.name, idea.industry);
-  const raw = await validateMarket(JSON.stringify(idea), JSON.stringify(pricingResults.results));
+  const researchInput = pricingResults.answer
+    ? `RESEARCH SUMMARY:\n${pricingResults.answer}\n\nRAW RESULTS:\n${JSON.stringify(pricingResults.results)}`
+    : JSON.stringify(pricingResults.results);
+  const raw = await validateMarket(JSON.stringify(idea), researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: pricingResults.results };
 }
 
@@ -83,9 +96,9 @@ export async function runPhase6Differentiation(idea: any, p2Raw: string) {
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-// FIX: Pre-Mortem now receives actual accumulated phase data
-export async function runPreMortem(idea: any, founderDNA: any, phaseResearchSummary: string) {
-  const raw = await preMortemSimulation(JSON.stringify(idea), phaseResearchSummary, founderDNA, []);
+// FIX: Pre-Mortem — no founderDNA, uses real phase data
+export async function runPreMortem(idea: any, phaseResearchSummary: string) {
+  const raw = await preMortemSimulation(JSON.stringify(idea), phaseResearchSummary, []);
   return safeJsonParse(raw);
 }
 
@@ -94,9 +107,10 @@ export async function runPhase7Failures(idea: any, simResponse: any, context: an
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, founderDNA: any, collectedEvidence: any) {
+// FIX: finalScoring — no founderDNA parameter
+export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, collectedEvidence: any) {
   const inputStr = JSON.stringify(idea) + "\nINPUTS: " + JSON.stringify(answers) + "\n" + JSON.stringify(simResponse);
-  const raw = await finalScoring(inputStr, JSON.stringify(context), founderDNA);
+  const raw = await finalScoring(inputStr, JSON.stringify(context));
   const parsed = safeJsonParse(raw);
 
   const avgScore = parsed.compositeScores ? 
@@ -105,12 +119,11 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
 
   let extraData: any = {};
 
-  // FIX: Coroner Report ALWAYS runs — failing ideas need failure history more
+  // Coroner Report ALWAYS runs
   const coronerRaw = await coronerReport(JSON.stringify(idea), JSON.stringify(context));
   extraData.coronerReport = safeJsonParse(coronerRaw);
 
   if (avgScore >= 65) {
-    // Good idea → Projections + Blueprint
     const [projectionsRaw, blueprintRaw] = await Promise.all([
       generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
       generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
@@ -118,7 +131,6 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
     extraData.projections = safeJsonParse(projectionsRaw);
     extraData.blueprint = safeJsonParse(blueprintRaw);
   } else {
-    // Failing idea → Pivots
     const pivotRaw = await pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse));
     extraData.pivots = safeJsonParse(pivotRaw);
   }
@@ -128,7 +140,7 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
   return { ...parsed, ...extraData };
 }
 
-// FIX: Stress Test now receives full audit context for accurate delta calculation
+// Stress Test with full audit context
 export async function runStressTest(idea: string, change: string, auditSummary: { scores: any; verdict: string; reasoning: string; compositeScores: any }) {
   const prompt = `You are stress-testing a proposed change to a startup idea.
 

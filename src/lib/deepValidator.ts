@@ -58,7 +58,7 @@ export async function runDeepValidation(
 
   // ═══ INTERROGATION PHASE ═══
   emit({ type: 'phase_start', phase: 0, name: 'Interrogation' });
-  const interrogationRaw = await interrogateIdea(ideaStr, founderDNA, "Standalone Context", [], "None");
+  const interrogationRaw = await interrogateIdea(ideaStr, "Standalone Context", [], "None");
   const interrogation = safeJsonParse(interrogationRaw);
   const interrogationAnswers = await waitForInput('interrogation', interrogation);
   const answersStr = JSON.stringify(interrogationAnswers);
@@ -90,7 +90,7 @@ export async function runDeepValidation(
   const p3 = await runPhase('Competition Saturation', 3, () => validateCompetition(ideaStr, p2.raw));
 
   // 4. Build Feasibility
-  const p4 = await runPhase('Build Feasibility', 4, () => validateFeasibility(ideaStr, founderStr));
+  const p4 = await runPhase('Build Feasibility', 4, () => validateFeasibility(ideaStr, "Evaluate based on idea complexity"));
 
   // 5. Market & Monetization
   const p5 = await runPhase('Market & Monetization', 5, async () => {
@@ -103,7 +103,8 @@ export async function runDeepValidation(
 
   // ═══ PRE-MORTEM SIMULATION ═══
   emit({ type: 'phase_start', phase: 6.5, name: 'Pre-Mortem Simulation' });
-  const simulationRaw = await preMortemSimulation(ideaStr, "Deep Context", founderDNA, []);
+  const phaseContext = JSON.stringify({ p1: p1.parsed, p2: p2.parsed, p3: p3.parsed, p4: p4.parsed, p5: p5.parsed, p6: p6.parsed });
+  const simulationRaw = await preMortemSimulation(ideaStr, phaseContext, []);
   const simulation = safeJsonParse(simulationRaw);
   const simulationResponse = await waitForInput('pre-mortem', simulation);
   const simStr = JSON.stringify(simulationResponse);
@@ -112,7 +113,7 @@ export async function runDeepValidation(
   const p7 = await runPhase('Failure Scenarios', 7, () => validateFailures(ideaStr + "\nRESPONSE: " + simStr, JSON.stringify({ p1, p2, p3, p4, p5, p6 })));
 
   // 8. Final Scoring
-  const p8 = await runPhase('Final Scoring', 8, () => finalScoring(ideaStr + "\nINPUTS: " + answersStr + "\n" + simStr, JSON.stringify({ p1, p2, p3, p4, p5, p6, p7 }), founderDNA));
+  const p8 = await runPhase('Final Scoring', 8, () => finalScoring(ideaStr + "\nINPUTS: " + answersStr + "\n" + simStr, JSON.stringify({ p1, p2, p3, p4, p5, p6, p7 })));
 
   const result = p8.parsed;
   result.fullValidation = { 

@@ -79,8 +79,6 @@ async function search(
 
   const response = await retryWithBackoff(async () => {
     try {
-      // Conflict Prevention: If the query contains date operators (after:, before:, since:, until:),
-      // we must strip the timeRange parameter to avoid "When time_range is set, start_date or end_date cannot be set" error.
       const hasDateOperators = /\b(after:|before:|since:|until:)\b/i.test(query);
       const activeOptions = {
         searchDepth,
@@ -126,9 +124,6 @@ async function search(
   };
 
   console.log(`[Tavily] Search success for "${safeQuery}". Results: ${result.results.length}, Answer: ${result.answer ? 'Yes' : 'No'}`);
-  if (result.results.length > 0) {
-    console.log(`[Tavily] Top result: ${result.results[0].title} (${result.results[0].url})`);
-  }
 
   if (useCache) {
     await setCachedResults(safeQuery, result);
@@ -149,11 +144,25 @@ export async function searchMarketGaps(
   });
 }
 
+// FIX: Smarter competitor search — uses user's known competitor names + industry landscape
 export async function searchCompetitors(
   ideaName: string,
-  industry: string
+  industry: string,
+  userCompetitorInfo: string = ''
 ): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(`${ideaName} ${industry} competitors alternatives software SaaS`, {
+  // Extract potential competitor names from user input
+  const competitorNames = userCompetitorInfo
+    .split(/[,.\n;]/)
+    .map(s => s.trim())
+    .filter(s => s.length > 2 && s.length < 40)
+    .slice(0, 3)
+    .join(' OR ');
+
+  const query = competitorNames
+    ? `${competitorNames} ${industry} startup competitor analysis market share`
+    : `${industry} top competitors startups tools platforms ${new Date().getFullYear()}`;
+
+  return search(query, {
     searchDepth: 'advanced',
     maxResults: 10,
     includeAnswer: true,
@@ -184,22 +193,26 @@ export async function searchTrends(
   });
 }
 
+// FIX: Smarter problem search — no quotes, searches for the pain not the idea
 export async function verifyProblem(
   problem: string,
   industry: string
 ): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(`"${problem}" ${industry} pain point frustration need solution`, {
+  // Extract key pain phrases (first 100 chars) without wrapping in quotes
+  const painCore = problem.substring(0, 120).replace(/"/g, '');
+  return search(`${painCore} ${industry} user frustration complaints market demand`, {
     searchDepth: 'advanced',
     maxResults: 8,
     includeAnswer: true,
   });
 }
 
+// FIX: Smarter pricing search — industry benchmarks, not nonexistent product pricing
 export async function searchPricing(
   ideaName: string,
   industry: string
 ): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(`${ideaName} ${industry} pricing plans market size revenue`, {
+  return search(`${industry} SaaS pricing benchmarks average revenue per user ARPU market size ${new Date().getFullYear()}`, {
     searchDepth: 'basic',
     maxResults: 8,
     includeAnswer: true,

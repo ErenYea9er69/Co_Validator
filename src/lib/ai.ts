@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { retryWithBackoff } from './retryHandler';
 
 const apiKeys = [
   process.env.LONGCAT_API_KEY,
@@ -19,28 +20,43 @@ function getClient(): OpenAI {
   });
 }
 
+function rotateKey() {
+  if (apiKeys.length > 1) {
+    currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+  }
+}
+
 export async function thinkDeep(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   options: { jsonMode?: boolean; temperature?: number; maxTokens?: number } = {}
 ): Promise<string> {
   const { temperature = 0.5, jsonMode = false, maxTokens = 16384 } = options;
 
-  try {
-    const result = await getClient().chat.completions.create({
-      model: 'longcat-flash-thinking-2601',
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      ...(jsonMode && { response_format: { type: 'json_object' } }),
-    });
-
-    return result.choices?.[0]?.message?.content || '';
-  } catch (error: any) {
-    if (apiKeys.length > 1 && (error.status === 429 || error.status >= 500)) {
-        currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+  return retryWithBackoff(async () => {
+    try {
+      const result = await getClient().chat.completions.create({
+        model: 'longcat-flash-thinking-2601',
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        ...(jsonMode && { response_format: { type: 'json_object' } }),
+      });
+      return result.choices?.[0]?.message?.content || '';
+    } catch (error: any) {
+      if (error.status === 429 || error.status >= 500) rotateKey();
+      throw error;
     }
-    throw error;
-  }
+  }, 3);
 }
 
-export const thinkFast = thinkDeep;
+// Real thinkFast — lower token limit for interactive features (stress test, quick checks)
+export async function thinkFast(
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+  options: { jsonMode?: boolean; temperature?: number } = {}
+): Promise<string> {
+  return thinkDeep(messages, {
+    ...options,
+    temperature: options.temperature ?? 0.7,
+    maxTokens: 4096,
+  });
+}

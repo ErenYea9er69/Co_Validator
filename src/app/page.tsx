@@ -79,7 +79,7 @@ export default function Home() {
     const wave1 = await Promise.allSettled([
       actions.runPhase1Problem(idea, "Initial Scan"),
       actions.runPhase2Competitors(idea, idea.competitorsInfo),
-      actions.runPhase4Feasibility(idea, founderStub),
+      actions.runPhase4Feasibility(idea),
       actions.runPhase5Market(idea),
     ]);
 
@@ -113,8 +113,8 @@ export default function Home() {
 
     setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running interrogation + survival simulation...');
     const wave3 = await Promise.allSettled([
-      actions.runInterrogation(idea, founderStub),
-      actions.runPreMortem(idea, founderStub, phaseResearchSummary),
+      actions.runInterrogation(idea, phaseResearchSummary),
+      actions.runPreMortem(idea, phaseResearchSummary),
     ]);
 
     if (wave3[0].status === 'fulfilled') { interrogationData = wave3[0].value; addLog('Interrogation ✓'); }
@@ -136,7 +136,7 @@ export default function Home() {
     // ═══ Final Scoring ═══
     try {
       setPhase(8); setPhaseName('Final Scoring'); addLog('Synthesizing Master Verdict...');
-      const finalResult = await actions.finalizeAudit(idea, interrogationData, preMortemData, { p1, p2, p3, p4, p5, p6, p7 }, null, evidence);
+      const finalResult = await actions.finalizeAudit(idea, interrogationData, preMortemData, { p1, p2, p3, p4, p5, p6, p7 }, evidence);
       setResult(finalResult);
       setPhase(10);
     } catch (err) {
@@ -530,6 +530,33 @@ export default function Home() {
                       <p className="text-sm text-gray-400 leading-relaxed italic">{renderSafe(rawData.p3?.parsed?.brutalTruth)}</p>
                    </div>
                 </div>
+
+                {/* Competition Heatmap (10 Dimensions) */}
+                {rawData.p3?.parsed && (
+                  <div className="glass-card p-8 bg-[#0a0a0a] border-white/5 mt-6">
+                     <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Market Dynamics Heatmap</h4>
+                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        {['buyerInertia', 'founderAdvantage', 'incumbentEntrenchment', 'networkEffectsBarrier', 'nicheAvailability', 'partnerDependencies', 'priceWarVulnerability', 'regulatoryMoat', 'supplyChainRisk', 'trustBarrier'].map((dim) => {
+                           const scoreObj = rawData.p3.parsed[dim as keyof typeof rawData.p3.parsed];
+                           if (!scoreObj || typeof scoreObj !== 'object') return null;
+                           const score = (scoreObj as any).score || 0;
+                           const colorClass = score >= 8 ? 'bg-red-500' : score >= 5 ? 'bg-yellow-500' : 'bg-green-500';
+                           return (
+                             <div key={dim} className="bg-white/5 p-4 rounded-xl border border-white/5 flex flex-col justify-between">
+                                <span className="text-[9px] uppercase font-black text-gray-500 mb-2 truncate" title={dim.replace(/([A-Z])/g, ' $1')}>{dim.replace(/([A-Z])/g, ' $1')}</span>
+                                <div className="flex items-end gap-2">
+                                   <span className={`text-2xl font-black ${score >= 8 ? 'text-red-400' : score >= 5 ? 'text-yellow-400' : 'text-green-400'}`}>{score}</span>
+                                   <span className="text-xs text-gray-600 mb-1">/10</span>
+                                </div>
+                                <div className="h-1 w-full bg-white/10 rounded-full mt-2 overflow-hidden">
+                                   <div className={`h-full ${colorClass}`} style={{ width: `${score * 10}%` }} />
+                                </div>
+                             </div>
+                           );
+                        })}
+                     </div>
+                  </div>
+                )}
              </section>
 
              {/* III. Execution Dossier */}
