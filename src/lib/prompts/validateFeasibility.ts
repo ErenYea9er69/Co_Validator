@@ -22,11 +22,10 @@ Return a JSON object:
   "expert": "Gritty Lead Engineer",
   "confidenceScore": 70,
   "verdict": "Highly Feasible | Tech-Heavy Risk | Skill Gap Crisis",
-  "signals": [
-    { "type": "green", "text": "Skill X matches need Y...", "impact": "Fast path to MVP" },
-    { "type": "red", "text": "Missing expertise in Z...", "impact": "Build delay risk" }
-  ],
-  "reasoning": "Engineering-focused breakdown."
+  "complexityAssessment": "Detailed technical complexity vs skill level breakdown.",
+  "bestBudgetPath": "Bootstrap / Angel / VC-needed",
+  "timeToMVP": "X months/weeks",
+  "reasoning": "Engineering-focused breakdown of what needs to be built."
 }
 `;
 

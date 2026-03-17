@@ -21,11 +21,13 @@ Return a JSON object:
   "expert": "Moat & Growth Strategist",
   "confidenceScore": 65,
   "verdict": "Unfair Advantage | Feature-Not-Product | Commodity Risk",
+  "primaryAdvantage": "SHORT PUNCHY ADVANTAGE NAME",
+  "differentiationStrategy": "Detailed breakdown of the moat and how to defend it.",
   "signals": [
     { "type": "green", "text": "Workflow integration creates lock-in...", "impact": "High retention moat" },
     { "type": "red", "text": "Easily copied by incumbant Y...", "impact": "Differentiation failure" }
   ],
-  "reasoning": "Growth and defensibility audit."
+  "reasoning": "Growth and defensibility audit explaining the growth vector."
 }
 `;
 

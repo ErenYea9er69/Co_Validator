@@ -21,11 +21,11 @@ Return a JSON object:
   "expert": "Anthropological Skeptic",
   "confidenceScore": 85,
   "verdict": "Vividly real pain | Lukewarm interest | Phantom problem",
-  "signals": [
-    { "type": "green", "text": "Evidence snippet...", "impact": "Why this proves pain" },
-    { "type": "red", "text": "Counter-evidence...", "impact": "Why this suggests apathy" }
+  "verifyingEvidence": [
+    "Snippet proving/disproving pain...",
+    "Market signal detected..."
   ],
-  "reasoning": "Detailed anthropological breakdown."
+  "reasoning": "Detailed anthropological breakdown of why this pain exists and what the data shows."
 }
 `;
 

@@ -31,7 +31,10 @@ Founder-Market Fit, Execution Risk.
 FORMAT:
 Return a JSON object:
 {
-  "scores": { "dimensionName": 1-10, ... },
+  "scores": { 
+    "dimensionName": { "score": 1-10, "reason": "Why it got this score based on phase reports" },
+    ... 
+  },
   "compositeScores": {
     "overallWinnability": 0-100,
     "cashFlowPotential": 0-100,
@@ -40,11 +43,26 @@ Return a JSON object:
     "founderFit": 0-100,
     "councilDiscord": 0-10
   },
+  "dataQuality": {
+    "isSurfaceLevel": false,
+    "missingCriticalInfo": "Detailed explanation of what the user forgot (features, money, etc) and why it makes this audit speculative.",
+    "realityCheck": "A blunt warning if the input was too thin."
+  },
   "category": "winnability | boring-strong | venture-backable | solo-founder | ai-defensible | no-code-pivot",
   "verdict": "🚀 | ✅ | ⚠️ | ❌",
   "verdictLabel": "Short punchy verdict description",
   "reasoning": "The Master Committee's synthesized logic.",
   "conflictResolution": "If a conflict was detected, explain how the council resolved the debate.",
+  "futureSandbox": {
+    "billionDollarPath": "Detailed trajectory",
+    "zombiePath": "What leads to stagnation"
+  },
+  "unitEconomicsReality": {
+    "ltv": "Estimate",
+    "cac": "Estimate",
+    "payback": "Estimate",
+    "margin": "Estimate"
+  },
   "expertSignals": {
     "green": ["Top 3 green signals from phase experts"],
     "red": ["Top 3 red signals from phase experts"]

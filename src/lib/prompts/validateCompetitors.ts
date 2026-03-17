@@ -22,11 +22,10 @@ Return a JSON object:
   "expert": "Competitive Intelligence Officer",
   "confidenceScore": 90,
   "verdict": "Open Field | Hidden Red Ocean | Competitive Graveyard",
-  "signals": [
-    { "type": "green", "text": "Competitor X lacks feature Y...", "impact": "Vulnerability identified" },
-    { "type": "red", "text": "Competitor Z has 80% market share...", "impact": "High barrier to entry" }
+  "directCompetitors": [
+    { "name": "Competitor X", "marketShare": "High/Med/Low", "moat": "Their strength", "weakness": "Their vulnerability" }
   ],
-  "reasoning": "Strategic competitive audit."
+  "reasoning": "Strategic competitive audit explaining the landscape and the boss competitors."
 }
 `;
 

@@ -38,6 +38,8 @@ Classify the market:
 Output JSON:
 {
   "marketClassification": "early | growing | saturated | red_ocean | empty",
+  "saturationRisk": "SHORT PUNCHY RISK NAME (e.g. Hidden Red Ocean)",
+  "brutalTruth": "The raw, unfiltered reality of this competitive space.",
   "competitionDimensions": {
     "directCompetitors": { "score": 5, "analysis": "..." },
     "indirectSubstitutes": { "score": 5, "analysis": "..." },

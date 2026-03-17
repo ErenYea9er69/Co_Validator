@@ -21,11 +21,13 @@ Return a JSON object:
   "expert": "Unit Economics Specialist",
   "confidenceScore": 75,
   "verdict": "Cash Machine | High-Burn Bet | Unclear Path to $",
-  "signals": [
-    { "type": "green", "text": "High LTV potential detected...", "impact": "Strong unit economics" },
-    { "type": "red", "text": "High CAC predicted due to X...", "impact": "Scale risk" }
-  ],
-  "reasoning": "Financial and market-sizing breakdown."
+  "unitEconomicsReality": {
+    "ltv": "Estimate",
+    "cac": "Estimate",
+    "margin": "Estimate",
+    "payback": "Estimate"
+  },
+  "reasoning": "Financial and market-sizing breakdown of how this scales."
 }
 `;
 
