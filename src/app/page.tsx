@@ -643,6 +643,7 @@ export default function Home() {
                                 <div className="h-1 w-full bg-white/10 rounded-full mt-2 overflow-hidden">
                                    <div className={`h-full ${colorClass}`} style={{ width: `${score * 10}%` }} />
                                 </div>
+                                 {scoreObj.analysis && (<p className="text-[8px] text-gray-500 mt-2 leading-tight italic">{scoreObj.analysis}</p>)}
                              </div>
                            );
                         })}
@@ -1001,6 +1002,7 @@ export default function Home() {
                    <p className="text-sm text-gray-400 mb-8 max-w-xl mx-auto">Found a pivot? Got more funding? Propose a change and see how it shifts your survival probability.</p>
                    <div className="flex gap-4 max-w-2xl mx-auto">
                       <input type="text" placeholder="e.g. 'What if I pivot to B2B enterprise sales?'" value={stressTestInput} onChange={(e) => setStressTestInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && stressTestInput.trim() && !stressTestLoading) { e.preventDefault(); (e.target as HTMLInputElement).closest('div')?.querySelector('button')?.click(); } }}
                         className="flex-1 bg-white/5 border border-white/10 rounded-xl px-6 py-4 text-white font-black uppercase text-xs focus:border-orange-500 transition-all" />
                       <button onClick={async () => {
                            if (!stressTestInput.trim()) return;
@@ -1068,7 +1070,7 @@ export default function Home() {
 
              {/* Footer */}
              <div className="pt-12 text-center print:hidden pb-20">
-                <button onClick={() => { setResult(null); setPhase(-1); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null); clearSaved(); }}
+                <button onClick={() => { setResult(null); setPhase(-1); setPhaseName(''); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null); setStressTestLoading(false); setFailedPhases([]); setLogs([]); setStressTestInput(''); clearSaved(); }}
                   className="px-16 py-5 border border-white/10 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 transition-all uppercase text-xs font-black tracking-[0.5em] hover:border-purple-500/40">
                   Terminate Audit Instance
                 </button>

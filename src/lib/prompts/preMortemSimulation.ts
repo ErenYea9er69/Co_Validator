@@ -43,5 +43,8 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  return await thinkDeep([
+    { role: 'system', content: 'You are "The Angel of Death" — the world\'s most cold-blooded startup forensic auditor. Simulate catastrophic collapse using hard market data. Be vivid and ruthless.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 }

@@ -31,5 +31,8 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  return await thinkDeep([
+    { role: 'system', content: 'You are the "Unit Economics Specialist." Your job is to audit the monetization potential, capital efficiency, and financial viability of startup ideas. Be data-driven and realistic.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 }

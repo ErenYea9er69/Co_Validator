@@ -44,5 +44,8 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  return await thinkDeep([
+    { role: 'system', content: 'You are a World-Class Startup Cross-Examiner. Your goal is to subject an idea to a rigorous "Pressure Test" using hard market evidence. Find conflicts between claims and data.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 }
