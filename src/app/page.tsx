@@ -503,6 +503,20 @@ export default function Home() {
                 <p className="text-gray-500 uppercase tracking-widest text-xs font-black">Due Diligence Report • {new Date().toLocaleDateString()}</p>
              </div>
 
+             {/* Data Quality Warning (also in dossier) */}
+             {result?.dataQuality?.isSurfaceLevel && (
+               <div className="glass-card border-red-500 !bg-red-500/5 print:border print:border-red-300">
+                  <div className="flex gap-4 items-center mb-4">
+                     <span className="text-4xl">⚠️</span>
+                     <div>
+                        <h3 className="text-xl font-black text-red-500 uppercase">Caution: Surface-Level Data</h3>
+                        <p className="text-gray-400 text-sm">{result.dataQuality.realityCheck}</p>
+                     </div>
+                  </div>
+                  <p className="text-gray-300 p-3 bg-red-500/10 rounded-lg text-sm">{result.dataQuality.missingCriticalInfo}</p>
+               </div>
+             )}
+
              {/* Evidence Vault Toggle */}
              <button onClick={() => setShowVault(true)}
                 className="fixed right-8 bottom-8 z-50 px-6 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 border-4 border-black group print:hidden">

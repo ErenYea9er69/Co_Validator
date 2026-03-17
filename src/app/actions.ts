@@ -76,9 +76,10 @@ export async function runPhase3Competition(idea: any, p2Raw: string) {
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-// FIX: No more founderDNA stub — feasibility evaluates idea complexity alone
+// FIX: No more founderDNA stub — feasibility evaluates idea complexity + stage
 export async function runPhase4Feasibility(idea: any) {
-  const raw = await validateFeasibility(JSON.stringify(idea), "Evaluate based on idea complexity and industry standards");
+  const stageContext = idea.stage ? `STARTUP STAGE: ${idea.stage}. ` : '';
+  const raw = await validateFeasibility(JSON.stringify(idea), stageContext + "Evaluate based on idea complexity and industry standards");
   return { raw, parsed: safeJsonParse(raw) };
 }
 
@@ -123,7 +124,9 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
     differentiationConfidence: context.p6?.parsed?.confidenceScore ?? 'unknown',
   };
 
+  const stageTag = idea.stage ? `\nSTARTUP STAGE: ${idea.stage}` : '';
   const inputStr = JSON.stringify(idea) 
+    + stageTag
     + "\nINPUTS: " + JSON.stringify(answers) 
     + "\nPHASE CONFIDENCE SCORES: " + JSON.stringify(phaseConfidences)
     + "\n" + JSON.stringify(simResponse);
