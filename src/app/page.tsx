@@ -15,7 +15,7 @@ const qualityColors = { red: 'bg-red-500', yellow: 'bg-yellow-500', green: 'bg-g
 
 export default function Home() {
   const [idea, setIdea] = useState({
-    name: '', problem: '', solution: '', industry: '', monetization: '', competitorsInfo: ''
+    name: '', problem: '', solution: '', industry: '', targetAudience: '', monetization: '', competitorsInfo: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -72,7 +72,7 @@ export default function Home() {
     let p1: any = null, p2: any = null, p3: any = null, p4: any = null, p5: any = null, p6: any = null, p7: any = null;
     let interrogationData: any = null, preMortemData: any = null;
     const failed: string[] = [];
-    const founderStub = { skills: ['General'], budget: 'Bootstrap', timeCommitment: 'Full-time' };
+
 
     // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5) ═══
     setPhase(1); setPhaseName('Parallel Scan (4 phases)'); addLog('Launching parallel research wave...');
@@ -221,6 +221,12 @@ export default function Home() {
                     className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all" placeholder="e.g. FoodTech" required />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Target Customer</label>
+                <input type="text" value={idea.targetAudience} onChange={(e) => setIdea({...idea, targetAudience: e.target.value})}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all"
+                  placeholder="e.g. SMB HR teams, D2C parents aged 25-40, enterprise DevOps engineers" />
+              </div>
 
               {/* Problem — with quality meter */}
               <div>
@@ -321,6 +327,10 @@ export default function Home() {
         {/* Result Header Buttons */}
         {result && (
           <div className="flex justify-end gap-4 print:hidden mb-8 animate-fade-in flex-wrap">
+             <button onClick={() => { setResult(null); setPhase(-1); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null); clearSaved(); }}
+                className="px-6 py-2 border border-green-500/50 rounded-full text-xs font-black uppercase tracking-widest hover:bg-green-500/10 transition-all text-green-400">
+                + New Audit
+             </button>
              <button onClick={() => setShowFullReport(!showFullReport)}
                 className="px-6 py-2 border border-purple-500 rounded-full text-xs font-black uppercase tracking-widest hover:bg-purple-500/10 transition-all text-purple-400">
                 {showFullReport ? 'View Scoreboard' : 'View Full Dossier'}
@@ -532,14 +542,13 @@ export default function Home() {
                 </div>
 
                 {/* Competition Heatmap (10 Dimensions) */}
-                {rawData.p3?.parsed && (
+                {rawData.p3?.parsed?.competitionDimensions && (
                   <div className="glass-card p-8 bg-[#0a0a0a] border-white/5 mt-6">
                      <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Market Dynamics Heatmap</h4>
                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        {['buyerInertia', 'founderAdvantage', 'incumbentEntrenchment', 'networkEffectsBarrier', 'nicheAvailability', 'partnerDependencies', 'priceWarVulnerability', 'regulatoryMoat', 'supplyChainRisk', 'trustBarrier'].map((dim) => {
-                           const scoreObj = rawData.p3.parsed[dim as keyof typeof rawData.p3.parsed];
+                        {Object.entries(rawData.p3.parsed.competitionDimensions).map(([dim, scoreObj]: [string, any]) => {
                            if (!scoreObj || typeof scoreObj !== 'object') return null;
-                           const score = (scoreObj as any).score || 0;
+                           const score = scoreObj.score || 0;
                            const colorClass = score >= 8 ? 'bg-red-500' : score >= 5 ? 'bg-yellow-500' : 'bg-green-500';
                            return (
                              <div key={dim} className="bg-white/5 p-4 rounded-xl border border-white/5 flex flex-col justify-between">

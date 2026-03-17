@@ -30,8 +30,10 @@ Output JSON:
   "failureScenarios": [
     {
       "rank": 1,
+      "name": "short threat name",
       "scenario": "what goes wrong",
-      "probability": "high | medium | low",
+      "trigger": "the specific event that triggers this failure",
+      "probability": 75,
       "impact": "fatal | severe | manageable",
       "mitigation": "how to reduce this risk"
     }

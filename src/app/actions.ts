@@ -81,13 +81,14 @@ export async function runPhase4Feasibility(idea: any) {
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-// FIX: Pass Tavily answer to market prompt
+// FIX: Pass monetization input to Market phase
 export async function runPhase5Market(idea: any) {
   const pricingResults = await searchPricing(idea.name, idea.industry);
   const researchInput = pricingResults.answer
     ? `RESEARCH SUMMARY:\n${pricingResults.answer}\n\nRAW RESULTS:\n${JSON.stringify(pricingResults.results)}`
     : JSON.stringify(pricingResults.results);
-  const raw = await validateMarket(JSON.stringify(idea), researchInput);
+  const ideaWithMonetization = JSON.stringify(idea) + (idea.monetization ? `\nREVENUE MODEL: ${idea.monetization}` : '');
+  const raw = await validateMarket(ideaWithMonetization, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: pricingResults.results };
 }
 
