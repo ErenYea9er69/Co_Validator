@@ -31,6 +31,14 @@ export default function Home() {
 
   const addLog = (msg: string) => setLogs(prev => [...prev.slice(-10), msg]);
 
+  const renderSafe = (val: any) => {
+    if (!val) return "";
+    if (typeof val === 'string' || typeof val === 'number') return val;
+    if (Array.isArray(val)) return val.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ');
+    if (typeof val === 'object') return Object.entries(val).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' | ');
+    return String(val);
+  };
+
   const startAudit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -294,7 +302,7 @@ export default function Home() {
                   ))}
               </div>
               <h3 className="text-5xl lg:text-6xl font-black mb-8 italic leading-tight max-w-5xl mx-auto drop-shadow-lg text-white">
-                "{result.verdictLabel}"
+                "{renderSafe(result.verdictLabel)}"
               </h3>
               <div className="flex justify-center">
                   <span className={`px-10 py-3 rounded-full font-black tracking-widest uppercase text-xl border-2 ${
@@ -342,8 +350,8 @@ export default function Home() {
                     <div className="space-y-4">
                       {challenges.interrogation?.questions?.slice(0, 3).map((q: any, i: number) => (
                         <div key={i} className="text-sm p-3 bg-white/5 rounded-lg border border-white/5">
-                          <p className="font-black text-white mb-1">Q: {q.question}</p>
-                          <p className="text-xs text-red-400 italic">Impact: {q.conflictNugget}</p>
+                          <p className="font-black text-white mb-1">Q: {renderSafe(q.question)}</p>
+                          <p className="text-xs text-red-400 italic">Impact: {renderSafe(q.conflictNugget)}</p>
                         </div>
                       ))}
                     </div>
@@ -356,7 +364,7 @@ export default function Home() {
                       <ul className="space-y-3">
                           {result.expertSignals?.green?.map((r: string, i: number) => (
                             <li key={i} className="text-sm text-gray-300 flex items-start gap-3">
-                               <span className="text-green-500 font-bold">✓</span> {r}
+                               <span className="text-green-500 font-bold">✓</span> {renderSafe(r)}
                             </li>
                           ))}
                       </ul>
@@ -367,7 +375,7 @@ export default function Home() {
                       <ul className="space-y-3">
                           {result.expertSignals?.red?.map((r: string, i: number) => (
                             <li key={i} className="text-sm text-gray-300 flex items-start gap-3">
-                               <span className="text-red-500 font-bold">⚠️</span> {r}
+                               <span className="text-red-500 font-bold">⚠️</span> {renderSafe(r)}
                             </li>
                           ))}
                       </ul>
@@ -396,14 +404,14 @@ export default function Home() {
                 <div className="grid lg:grid-cols-2 gap-8">
                    <div className="glass-card border border-white/5 space-y-4">
                       <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Anthropological Evidence</h4>
-                      <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{rawData.p1?.parsed?.reasoning || "Analyzing problem gravity and market pain markers..."}"</p>
+                      <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p1?.parsed?.reasoning) || "Analyzing problem gravity and market pain markers..."}"</p>
                    </div>
                    <div className="glass-card border border-white/5">
                       <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">Market Findings</h4>
                       <ul className="space-y-4">
                          {rawData.p1?.parsed?.verifyingEvidence?.map((e: any, i: number) => (
                            <li key={i} className="text-sm text-gray-400 p-3 bg-white/5 rounded-lg border-l-2 border-purple-500">
-                             {e.fact || e}
+                             {renderSafe(e.fact || e)}
                            </li>
                          ))}
                       </ul>
@@ -437,8 +445,8 @@ export default function Home() {
                    </div>
                    <div className="glass-card bg-red-500/5 border-red-500/20">
                       <h4 className="text-xs font-black text-red-500 uppercase mb-6 tracking-widest">The Death Vector</h4>
-                      <p className="text-lg font-black mb-4">"{rawData.p3?.parsed?.saturationRisk || "Deep Sea Red Ocean Risk"}"</p>
-                      <p className="text-sm text-gray-400 leading-relaxed italic">{rawData.p3?.parsed?.brutalTruth}</p>
+                      <p className="text-lg font-black mb-4">"{renderSafe(rawData.p3?.parsed?.saturationRisk) || "Deep Sea Red Ocean Risk"}"</p>
+                      <p className="text-sm text-gray-400 leading-relaxed italic">{renderSafe(rawData.p3?.parsed?.brutalTruth)}</p>
                    </div>
                 </div>
              </section>
@@ -452,7 +460,7 @@ export default function Home() {
                 <div className="grid lg:grid-cols-2 gap-8">
                    <div className="glass-card">
                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Feasibility Analysis</h4>
-                      <p className="text-gray-300 leading-relaxed font-bold italic">"{rawData.p4?.parsed?.complexityAssessment || "Calculating implementation debt..."}"</p>
+                      <p className="text-gray-300 leading-relaxed font-bold italic">"{renderSafe(rawData.p4?.parsed?.complexityAssessment) || "Calculating implementation debt..."}"</p>
                       <div className="mt-6 flex gap-4">
                          <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                             <span className="text-[10px] text-gray-500 uppercase block mb-1">Budget Path</span>
@@ -466,8 +474,8 @@ export default function Home() {
                    </div>
                    <div className="glass-card">
                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Asymmetric Advantage</h4>
-                      <p className="text-lg text-green-400 font-black mb-4 underline decoration-green-500/30 font-mono tracking-tighter uppercase">{rawData.p6?.parsed?.primaryAdvantage || "Scanning for Moats..."}</p>
-                      <p className="text-sm text-gray-400 italic">Strategy: {rawData.p6?.parsed?.differentiationStrategy}</p>
+                      <p className="text-lg text-green-400 font-black mb-4 underline decoration-green-500/30 font-mono tracking-tighter uppercase">{renderSafe(rawData.p6?.parsed?.primaryAdvantage) || "Scanning for Moats..."}</p>
+                      <p className="text-sm text-gray-400 italic">Strategy: {renderSafe(rawData.p6?.parsed?.differentiationStrategy)}</p>
                    </div>
                 </div>
              </section>
