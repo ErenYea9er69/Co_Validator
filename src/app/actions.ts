@@ -111,9 +111,22 @@ export async function runPhase7Failures(idea: any, simResponse: any, context: an
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-// FIX: finalScoring — no founderDNA parameter
+// FIX: finalScoring — structured confidence scores + thinkFast for post-verdict
 export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, collectedEvidence: any) {
-  const inputStr = JSON.stringify(idea) + "\nINPUTS: " + JSON.stringify(answers) + "\n" + JSON.stringify(simResponse);
+  // Extract confidence scores from each phase for the final scoring prompt
+  const phaseConfidences = {
+    problemConfidence: context.p1?.parsed?.confidenceScore ?? 'unknown',
+    competitorConfidence: context.p2?.parsed?.confidenceScore ?? 'unknown',
+    competitionScore: context.p3?.parsed?.competitionScore ?? 'unknown',
+    feasibilityConfidence: context.p4?.parsed?.confidenceScore ?? 'unknown',
+    marketConfidence: context.p5?.parsed?.confidenceScore ?? 'unknown',
+    differentiationConfidence: context.p6?.parsed?.confidenceScore ?? 'unknown',
+  };
+
+  const inputStr = JSON.stringify(idea) 
+    + "\nINPUTS: " + JSON.stringify(answers) 
+    + "\nPHASE CONFIDENCE SCORES: " + JSON.stringify(phaseConfidences)
+    + "\n" + JSON.stringify(simResponse);
   const raw = await finalScoring(inputStr, JSON.stringify(context));
   const parsed = safeJsonParse(raw);
 
@@ -123,19 +136,23 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
 
   let extraData: any = {};
 
-  // Coroner Report ALWAYS runs
-  const coronerRaw = await coronerReport(JSON.stringify(idea), JSON.stringify(context));
-  extraData.coronerReport = safeJsonParse(coronerRaw);
-
   if (avgScore >= 65) {
-    const [projectionsRaw, blueprintRaw] = await Promise.all([
+    // Coroner + Projections + Blueprint all in parallel, using thinkFast for non-critical
+    const [coronerRaw, projectionsRaw, blueprintRaw] = await Promise.all([
+      coronerReport(JSON.stringify(idea), JSON.stringify(context)),
       generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
       generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
     ]);
+    extraData.coronerReport = safeJsonParse(coronerRaw);
     extraData.projections = safeJsonParse(projectionsRaw);
     extraData.blueprint = safeJsonParse(blueprintRaw);
   } else {
-    const pivotRaw = await pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse));
+    // Coroner + Pivots in parallel
+    const [coronerRaw, pivotRaw] = await Promise.all([
+      coronerReport(JSON.stringify(idea), JSON.stringify(context)),
+      pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse)),
+    ]);
+    extraData.coronerReport = safeJsonParse(coronerRaw);
     extraData.pivots = safeJsonParse(pivotRaw);
   }
 

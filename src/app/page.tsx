@@ -15,7 +15,7 @@ const qualityColors = { red: 'bg-red-500', yellow: 'bg-yellow-500', green: 'bg-g
 
 export default function Home() {
   const [idea, setIdea] = useState({
-    name: '', problem: '', solution: '', industry: '', targetAudience: '', monetization: '', competitorsInfo: ''
+    name: '', problem: '', solution: '', industry: '', targetAudience: '', monetization: '', competitorsInfo: '', stage: 'idea'
   });
 
   const [loading, setLoading] = useState(false);
@@ -27,6 +27,7 @@ export default function Home() {
   const [challenges, setChallenges] = useState<any>(null);
   const [stressTestInput, setStressTestInput] = useState('');
   const [stressTestResult, setStressTestResult] = useState<any>(null);
+  const [stressTestLoading, setStressTestLoading] = useState(false);
   const [showVault, setShowVault] = useState(false);
   const [rawData, setRawData] = useState<any>({});
   const [failedPhases, setFailedPhases] = useState<string[]>([]);
@@ -94,6 +95,16 @@ export default function Home() {
 
     if (wave1[3].status === 'fulfilled') { p5 = wave1[3].value; setRawData((prev: any) => ({ ...prev, p5 })); if (p5.searchResults) evidence['pricing_research'] = p5.searchResults; addLog('Market ✓'); }
     else { failed.push('Market & Monetization'); addLog('⚠️ Market failed'); }
+
+    // ═══ CIRCUIT BREAKER: Abort if 3+ Wave 1 phases failed ═══
+    if (failed.length >= 3) {
+      addLog('❌ CIRCUIT BREAKER: Too many phase failures. Audit data would be unreliable.');
+      setFailedPhases(failed);
+      setLoading(false);
+      setResult({ verdict: '⚠️', verdictLabel: 'AUDIT ABORTED — Insufficient Data', reasoning: `${failed.length} out of 4 initial phases failed. The audit cannot produce a reliable verdict. Please check your API keys and retry.`, compositeScores: {}, scores: {} });
+      setPhase(10);
+      return;
+    }
 
     // ═══ WAVE 2: Phases dependent on P2 (3, 6) in parallel ═══
     setPhase(3); setPhaseName('Competitive Deep-Dive'); addLog('Analyzing saturation + differentiation...');
@@ -217,8 +228,18 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">Industry</label>
-                  <input type="text" value={idea.industry} onChange={(e) => setIdea({...idea, industry: e.target.value})}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all" placeholder="e.g. FoodTech" required />
+                  <select value={['FinTech','HealthTech','EdTech','FoodTech','E-Commerce','SaaS','AI/ML','Marketplace','Social','Gaming','Logistics','Real Estate','CleanTech','LegalTech','InsurTech','HRTech','DevTools','Crypto/Web3'].includes(idea.industry) ? idea.industry : 'custom'}
+                    onChange={(e) => setIdea({...idea, industry: e.target.value === 'custom' ? '' : e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all">
+                    <option value="custom">Custom / Other</option>
+                    {['FinTech','HealthTech','EdTech','FoodTech','E-Commerce','SaaS','AI/ML','Marketplace','Social','Gaming','Logistics','Real Estate','CleanTech','LegalTech','InsurTech','HRTech','DevTools','Crypto/Web3'].map(ind => (
+                      <option key={ind} value={ind}>{ind}</option>
+                    ))}
+                  </select>
+                  {!['FinTech','HealthTech','EdTech','FoodTech','E-Commerce','SaaS','AI/ML','Marketplace','Social','Gaming','Logistics','Real Estate','CleanTech','LegalTech','InsurTech','HRTech','DevTools','Crypto/Web3'].includes(idea.industry) && (
+                    <input type="text" value={idea.industry} onChange={(e) => setIdea({...idea, industry: e.target.value})}
+                      className="w-full bg-black/50 border border-white/10 rounded-lg p-3 mt-2 focus:border-purple-500 outline-none transition-all" placeholder="Type your industry" required />
+                  )}
                 </div>
               </div>
               <div>
@@ -228,7 +249,26 @@ export default function Home() {
                   placeholder="e.g. SMB HR teams, D2C parents aged 25-40, enterprise DevOps engineers" />
               </div>
 
-              {/* Problem — with quality meter */}
+              {/* Stage Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Stage</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { value: 'idea', label: '💡 Idea', desc: 'No code yet' },
+                    { value: 'pre-revenue', label: '🔨 Pre-Revenue', desc: 'Building MVP' },
+                    { value: 'revenue', label: '💰 Revenue', desc: 'Has paying users' },
+                    { value: 'scaling', label: '🚀 Scaling', desc: '$10K+ MRR' },
+                  ].map(s => (
+                    <button key={s.value} type="button" onClick={() => setIdea({...idea, stage: s.value})}
+                      className={`p-3 rounded-lg border text-center transition-all ${
+                        idea.stage === s.value ? 'bg-purple-500/20 border-purple-500 text-purple-400' : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/30'
+                      }`}>
+                      <span className="block text-sm font-bold">{s.label}</span>
+                      <span className="block text-[9px] mt-1 opacity-60">{s.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-sm font-medium text-gray-400">The Problem (Be Specific)</label>
@@ -298,6 +338,20 @@ export default function Home() {
 
               <button type="submit" disabled={!overallReady} className={`w-full py-4 font-black rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 ${overallReady ? 'btn-premium' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}>
                 {overallReady ? 'START DEEP AUDIT' : 'ADD MORE DETAIL TO START'}
+              </button>
+
+              {/* Try Example */}
+              <button type="button" onClick={() => setIdea({
+                name: 'FitMentor AI', 
+                problem: 'Personal trainers cost $60-150/hour, making personalized fitness coaching inaccessible to 90% of gym-goers. Most people follow generic YouTube workouts that don\'t adapt to their injuries, goals, or progress. They plateau within 3 months and quit.',
+                solution: 'AI-powered personal training app that creates adaptive workout plans using computer vision form analysis. Key features: (1) Real-time form correction via phone camera, (2) Progressive overload auto-adjustment, (3) Injury-aware exercise substitution, (4) Weekly plan adaptation based on recovery metrics.',
+                industry: 'HealthTech',
+                targetAudience: 'Gym-goers aged 22-40 who spend $30-80/mo on gym memberships but can\'t afford a personal trainer',
+                monetization: 'Freemium. Free: basic workout logging. Premium $14.99/mo: AI form analysis + adaptive plans. ',
+                competitorsInfo: 'Fitbod (workout generator, no form analysis), Future ($150/mo human coach, too expensive), Tempo (requires $400 hardware). Gap: no app does real-time form correction at consumer price.',
+                stage: 'idea'
+              })} className="w-full py-3 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-all border border-dashed border-white/10 rounded-xl hover:border-purple-500/30">
+                💡 Try Example Idea
               </button>
             </form>
           </div>
@@ -408,7 +462,7 @@ export default function Home() {
                     <div className="space-y-4">
                       {challenges.interrogation?.questions?.slice(0, 3).map((q: any, i: number) => (
                         <div key={i} className="text-sm p-3 bg-white/5 rounded-lg border border-white/5">
-                          <p className="font-black text-white mb-1">Q: {renderSafe(q.question)}</p>
+                          <p className="font-black text-white mb-1">Q: {renderSafe(q.text || q.question)}</p>
                           <p className="text-xs text-red-400 italic">Impact: {renderSafe(q.conflictNugget)}</p>
                         </div>
                       ))}
@@ -866,15 +920,22 @@ export default function Home() {
                       <input type="text" placeholder="e.g. 'What if I pivot to B2B enterprise sales?'" value={stressTestInput} onChange={(e) => setStressTestInput(e.target.value)}
                         className="flex-1 bg-white/5 border border-white/10 rounded-xl px-6 py-4 text-white font-black uppercase text-xs focus:border-orange-500 transition-all" />
                       <button onClick={async () => {
-                           const res = await actions.runStressTest(idea.name, stressTestInput, {
-                             scores: result.scores,
-                             verdict: result.verdict,
-                             reasoning: result.reasoning,
-                             compositeScores: result.compositeScores,
-                           });
-                           setStressTestResult(res);
-                        }} className="px-8 bg-orange-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-orange-400 transition-all">
-                        Fire
+                           if (!stressTestInput.trim()) return;
+                           setStressTestLoading(true);
+                           setStressTestResult(null);
+                           try {
+                             const res = await actions.runStressTest(idea.name, stressTestInput, {
+                               scores: result.scores,
+                               verdict: result.verdict,
+                               reasoning: result.reasoning,
+                               compositeScores: result.compositeScores,
+                             });
+                             setStressTestResult(res);
+                           } finally {
+                             setStressTestLoading(false);
+                           }
+                        }} disabled={stressTestLoading || !stressTestInput.trim()} className={`px-8 font-black uppercase text-xs tracking-widest rounded-xl transition-all ${stressTestLoading ? 'bg-orange-500/50 text-black/50 cursor-wait' : 'bg-orange-500 text-black hover:bg-orange-400'}`}>
+                        {stressTestLoading ? '...' : 'Fire'}
                       </button>
                    </div>
                    {stressTestResult && (
