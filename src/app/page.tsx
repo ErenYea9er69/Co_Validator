@@ -494,6 +494,15 @@ export default function Home() {
                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">I</span>
                    PROBLEM & MARKET EVIDENCE
                 </h3>
+                {rawData.p1?.parsed && (
+                  <div className="flex items-center gap-4 mb-2">
+                     <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${
+                       rawData.p1.parsed.confidenceScore >= 70 ? 'bg-green-500/20 text-green-400' :
+                       rawData.p1.parsed.confidenceScore >= 40 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
+                     }`}>{rawData.p1.parsed.verdict || 'N/A'}</span>
+                     <span className="text-xs text-gray-500 font-bold">Confidence: {rawData.p1.parsed.confidenceScore ?? '?'}%</span>
+                  </div>
+                )}
                 <div className="grid lg:grid-cols-2 gap-8">
                    <div className="glass-card border border-white/5 space-y-4">
                       <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Anthropological Evidence</h4>
@@ -592,7 +601,20 @@ export default function Home() {
                    <div className="glass-card">
                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Asymmetric Advantage</h4>
                       <p className="text-lg text-green-400 font-black mb-4 underline decoration-green-500/30 font-mono tracking-tighter uppercase">{renderSafe(rawData.p6?.parsed?.primaryAdvantage) || "N/A"}</p>
-                      <p className="text-sm text-gray-400 italic">Strategy: {renderSafe(rawData.p6?.parsed?.differentiationStrategy)}</p>
+                      <p className="text-sm text-gray-400 italic mb-4">Strategy: {renderSafe(rawData.p6?.parsed?.differentiationStrategy)}</p>
+                      {rawData.p6?.parsed?.signals && (
+                        <div className="grid gap-2 mt-4 pt-4 border-t border-white/5">
+                           {rawData.p6.parsed.signals.map((sig: any, i: number) => (
+                             <div key={i} className={`p-3 rounded-lg text-xs flex items-start gap-2 ${sig.type === 'green' ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                                <span className={`font-black mt-px ${sig.type === 'green' ? 'text-green-400' : 'text-red-400'}`}>{sig.type === 'green' ? '✓' : '⚠'}</span>
+                                <div>
+                                   <p className={`font-bold ${sig.type === 'green' ? 'text-green-300' : 'text-red-300'}`}>{renderSafe(sig.text)}</p>
+                                   <p className="text-gray-500 italic mt-1">{renderSafe(sig.impact)}</p>
+                                </div>
+                             </div>
+                           ))}
+                        </div>
+                      )}
                    </div>
                 </div>
              </section>
@@ -603,6 +625,15 @@ export default function Home() {
                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IV</span>
                    UNIT ECONOMICS & SCALE
                 </h3>
+                {rawData.p5?.parsed && (
+                  <div className="flex items-center gap-4 mb-2">
+                     <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${
+                       rawData.p5.parsed.confidenceScore >= 70 ? 'bg-green-500/20 text-green-400' :
+                       rawData.p5.parsed.confidenceScore >= 40 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
+                     }`}>{rawData.p5.parsed.verdict || 'N/A'}</span>
+                     <span className="text-xs text-gray-500 font-bold">Market Confidence: {rawData.p5.parsed.confidenceScore ?? '?'}%</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {Object.entries(result.unitEconomicsReality || {}).map(([key, val]) => (
                       <div key={key} className="glass-card text-center !bg-white/5 border-purple-500/10 hover:border-purple-500/30 transition-all">
@@ -619,21 +650,53 @@ export default function Home() {
                    <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">V</span>
                    ANGEL OF DEATH: SURVIVAL SIMULATION
                 </h3>
-                <div className="grid lg:grid-cols-2 gap-8">
-                   {challenges?.preMortem?.scenarios?.map((s: any, i: number) => (
-                      <div key={i} className="glass-card !bg-orange-500/5 border-orange-500/30">
-                        <div className="flex justify-between items-start mb-6">
-                           <h4 className="text-xs font-black text-orange-500 uppercase tracking-widest">Failure Vector {i+1}</h4>
-                           <span className="text-xs px-3 py-1 bg-red-500/20 text-red-500 rounded-full font-black uppercase">CRITICAL</span>
+                {challenges?.preMortem && (
+                  <div className="space-y-8">
+                     {/* Survival Odds + Risk Category */}
+                     <div className="flex items-center gap-6 flex-wrap">
+                        <div className="flex items-center gap-3">
+                           <span className="text-[10px] text-orange-400 font-black uppercase tracking-widest">Survival Odds</span>
+                           <span className={`text-3xl font-black ${(challenges.preMortem.survivalOdds || 0) <= 30 ? 'text-red-400' : 'text-orange-400'}`}>{challenges.preMortem.survivalOdds || '?'}%</span>
                         </div>
-                        <p className="text-xl font-black text-white leading-tight mb-4 italic print:text-black">"{s.scenario}"</p>
-                        <div className="pt-4 border-t border-orange-500/20">
-                           <p className="text-sm text-red-400 font-bold uppercase mb-1 flex items-center gap-2"><span className="w-2 h-2 bg-red-500 rounded-full animate-pulse print:animate-none" /> Fatal Flaw</p>
-                           <p className="text-gray-300 font-medium print:text-gray-700">{s.fatalFlaw}</p>
+                        <span className="px-4 py-1 bg-orange-500/20 text-orange-400 rounded-full text-[10px] font-black uppercase">{challenges.preMortem.riskCategory || 'Unknown Risk'}</span>
+                     </div>
+
+                     {/* The Scenario */}
+                     <div className="glass-card !bg-orange-500/5 border-orange-500/30">
+                        <h4 className="text-xs font-black text-orange-500 uppercase tracking-widest mb-4">The Collapse Scenario</h4>
+                        <p className="text-lg text-gray-300 leading-relaxed font-medium italic print:text-gray-700">"{renderSafe(challenges.preMortem.scenario)}"</p>
+                     </div>
+
+                     {/* Death Timeline */}
+                     {challenges.preMortem.deathTimeline && (
+                        <div className="grid md:grid-cols-3 gap-4">
+                           {challenges.preMortem.deathTimeline.map((phase: any, i: number) => (
+                             <div key={i} className={`glass-card border-l-4 ${i === 0 ? 'border-yellow-500 !bg-yellow-500/5' : i === 1 ? 'border-orange-500 !bg-orange-500/5' : 'border-red-500 !bg-red-500/5'}`}>
+                                <span className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-orange-500' : 'text-red-500'}`}>Month {phase.month}</span>
+                                <h4 className="font-black text-white text-sm mb-2 print:text-black">{renderSafe(phase.event)}</h4>
+                                <p className="text-xs text-gray-400 italic">{renderSafe(phase.description)}</p>
+                             </div>
+                           ))}
                         </div>
-                      </div>
-                   ))}
-                </div>
+                     )}
+
+                     {/* Lurking Shadow + Critical Decision */}
+                     <div className="grid lg:grid-cols-2 gap-6">
+                        {challenges.preMortem.lurkingShadow && (
+                           <div className="p-6 bg-red-500/5 border-l-4 border-red-500 rounded-r-2xl">
+                              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400 block mb-2">⚡ The Lurking Shadow</span>
+                              <p className="text-sm text-gray-300 italic">"{renderSafe(challenges.preMortem.lurkingShadow)}"</p>
+                           </div>
+                        )}
+                        {challenges.preMortem.theQuestion && (
+                           <div className="p-6 bg-purple-500/5 border-l-4 border-purple-500 rounded-r-2xl">
+                              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400 block mb-2">🎯 The Critical Decision</span>
+                              <p className="text-sm text-white font-bold">"{renderSafe(challenges.preMortem.theQuestion)}"</p>
+                           </div>
+                        )}
+                     </div>
+                  </div>
+                )}
              </section>
 
              {/* V.5. Pressure Test — Interrogation Questions */}
@@ -678,6 +741,20 @@ export default function Home() {
                      <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">VI</span>
                      FUTURE SANDBOX: 12-MONTH TRAJECTORY
                   </h3>
+
+                  {/* Future Sandbox Trajectories */}
+                  {result.futureSandbox && (
+                     <div className="grid lg:grid-cols-2 gap-6 mb-8">
+                        <div className="glass-card border-l-4 border-green-500 !bg-green-500/5">
+                           <h4 className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em] mb-3">🚀 Billion Dollar Path</h4>
+                           <p className="text-sm text-gray-300 leading-relaxed italic">"{renderSafe(result.futureSandbox.billionDollarPath)}"</p>
+                        </div>
+                        <div className="glass-card border-l-4 border-gray-600 !bg-white/5">
+                           <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">💀 Zombie Path</h4>
+                           <p className="text-sm text-gray-300 leading-relaxed italic">"{renderSafe(result.futureSandbox.zombiePath)}"</p>
+                        </div>
+                     </div>
+                  )}
                   <div className="glass-card !bg-green-500/5 border-green-500/20">
                     <p className="text-sm text-gray-400 mb-8 italic">{result.projections.summary}</p>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">

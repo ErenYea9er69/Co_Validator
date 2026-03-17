@@ -55,7 +55,8 @@ export async function runPhase1Problem(idea: any, initialContext: string) {
   const researchInput = evidence.answer
     ? `RESEARCH SUMMARY:\n${evidence.answer}\n\nRAW RESULTS:\n${JSON.stringify(evidence.results)}`
     : JSON.stringify(evidence.results);
-  const raw = await validateProblem(ideaStr + "\nCONTEXT: " + initialContext, researchInput);
+  const contextStr = idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '';
+  const raw = await validateProblem(ideaStr + contextStr + "\nCONTEXT: " + initialContext, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: evidence.results };
 }
 
@@ -87,7 +88,9 @@ export async function runPhase5Market(idea: any) {
   const researchInput = pricingResults.answer
     ? `RESEARCH SUMMARY:\n${pricingResults.answer}\n\nRAW RESULTS:\n${JSON.stringify(pricingResults.results)}`
     : JSON.stringify(pricingResults.results);
-  const ideaWithMonetization = JSON.stringify(idea) + (idea.monetization ? `\nREVENUE MODEL: ${idea.monetization}` : '');
+  const ideaWithMonetization = JSON.stringify(idea) 
+    + (idea.monetization ? `\nREVENUE MODEL: ${idea.monetization}` : '')
+    + (idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '');
   const raw = await validateMarket(ideaWithMonetization, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: pricingResults.results };
 }
