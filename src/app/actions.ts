@@ -17,7 +17,23 @@ import { generateBlueprint } from '@/lib/prompts/generateBlueprint';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
 import { coronerReport } from '@/lib/prompts/coronerReport';
 
+import { validateFounderFit } from '@/lib/prompts/validateFounderFit';
+import { generateRoadmap } from '@/lib/prompts/generateRoadmap';
+
 import { safeJsonParse } from '@/lib/safeJsonParse';
+
+// New: Founder-Market Fit Phase
+export async function runFounderFit(idea: any) {
+  const ideaStr = JSON.stringify({ name: idea.name, problem: idea.problem, solution: idea.solution, industry: idea.industry });
+  const founderData = JSON.stringify({ 
+    background: idea.founderBackground, 
+    budget: idea.budget, 
+    locale: idea.locale,
+    targetAudience: idea.targetAudience 
+  });
+  const raw = await validateFounderFit(ideaStr, founderData);
+  return { raw, parsed: safeJsonParse(raw) };
+}
 
 // FIX: No more founderDNA stubs — interrogation uses market intelligence only
 export async function runInterrogation(idea: any, phaseContext: string) {
@@ -54,10 +70,15 @@ export async function runPhase3Competition(idea: any, p2Raw: string) {
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-// FIX: No more founderDNA stub — feasibility evaluates idea complexity + stage
+// UPDATED: Feasibility now evaluates based on founder background and budget
 export async function runPhase4Feasibility(idea: any) {
-  const stageContext = idea.stage ? `STARTUP STAGE: ${idea.stage}. ` : '';
-  const raw = await validateFeasibility(JSON.stringify(idea), stageContext + "Evaluate based on idea complexity and industry standards");
+  const context = `
+    STARTUP STAGE: ${idea.stage}. 
+    FOUNDER BACKGROUND: ${idea.founderBackground}. 
+    BUDGET: ${idea.budget}. 
+    LOCALE: ${idea.locale}.
+  `;
+  const raw = await validateFeasibility(JSON.stringify(idea), context + "Evaluate if the idea's technical/operational complexity matches the founder's profile and resources.");
   return { raw, parsed: safeJsonParse(raw) };
 }
 
@@ -69,7 +90,8 @@ export async function runPhase5Market(idea: any) {
     : JSON.stringify(pricingResults.results);
   const ideaWithMonetization = JSON.stringify(idea) 
     + (idea.monetization ? `\nREVENUE MODEL: ${idea.monetization}` : '')
-    + (idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '');
+    + (idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '')
+    + (idea.locale ? `\nLOCALE: ${idea.locale}` : '');
   const raw = await validateMarket(ideaWithMonetization, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: pricingResults.results };
 }
@@ -100,11 +122,13 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
     feasibilityConfidence: context.p4?.parsed?.confidenceScore ?? 'unknown',
     marketConfidence: context.p5?.parsed?.confidenceScore ?? 'unknown',
     differentiationConfidence: context.p6?.parsed?.confidenceScore ?? 'unknown',
+    founderFitScore: context.p_fit?.parsed?.score ?? 'unknown'
   };
 
   const stageTag = idea.stage ? `\nSTARTUP STAGE: ${idea.stage}` : '';
   const inputStr = JSON.stringify(idea) 
     + stageTag
+    + "\nFOUNDER FIT: " + JSON.stringify(context.p_fit?.parsed)
     + "\nINPUTS: " + JSON.stringify(answers) 
     + "\nPHASE CONFIDENCE SCORES: " + JSON.stringify(phaseConfidences)
     + "\n" + JSON.stringify(simResponse);
@@ -117,24 +141,31 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
 
   let extraData: any = {};
 
+  // Roadmap generation (parallel with others)
+  const roadmapPromise = generateRoadmap(JSON.stringify(idea), JSON.stringify({ verdict: parsed.verdictLabel, scores: parsed.scores, vulnerabilities: parsed.expertSignals?.red }));
+
   if (avgScore >= 65) {
-    // Coroner + Projections + Blueprint all in parallel, using thinkFast for non-critical
-    const [coronerRaw, projectionsRaw, blueprintRaw] = await Promise.all([
+    // Coroner + Projections + Blueprint + Roadmap all in parallel
+    const [coronerRaw, projectionsRaw, blueprintRaw, roadmapRaw] = await Promise.all([
       coronerReport(JSON.stringify(idea), JSON.stringify(context)),
       generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
       generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
+      roadmapPromise
     ]);
     extraData.coronerReport = safeJsonParse(coronerRaw);
     extraData.projections = safeJsonParse(projectionsRaw);
     extraData.blueprint = safeJsonParse(blueprintRaw);
+    extraData.roadmap = safeJsonParse(roadmapRaw);
   } else {
-    // Coroner + Pivots in parallel
-    const [coronerRaw, pivotRaw] = await Promise.all([
+    // Coroner + Pivots + Roadmap in parallel
+    const [coronerRaw, pivotRaw, roadmapRaw] = await Promise.all([
       coronerReport(JSON.stringify(idea), JSON.stringify(context)),
       pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse)),
+      roadmapPromise
     ]);
     extraData.coronerReport = safeJsonParse(coronerRaw);
     extraData.pivots = safeJsonParse(pivotRaw);
+    extraData.roadmap = safeJsonParse(roadmapRaw);
   }
 
   extraData.evidenceVault = collectedEvidence;
