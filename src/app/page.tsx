@@ -64,10 +64,8 @@ export default function Home() {
     setIsStressTesting(true);
     try {
       const summary = {
-        scores: result.scores,
-        verdict: result.verdictLabel,
+        assumptions: result.criticalAssumptionStack,
         reasoning: result.reasoning,
-        compositeScores: result.compositeScores
       };
       const testResult = await actions.runStressTest(JSON.stringify(idea), change, summary as any);
       setStressResults(prev => [{ ...testResult, change, id: Date.now() }, ...prev]);
@@ -77,6 +75,7 @@ export default function Home() {
       setIsStressTesting(false);
     }
   };
+
 
   useEffect(() => {
     if (result && phase === 10) {
@@ -228,6 +227,7 @@ export default function Home() {
       actions.runInterrogation(currentIdea, phaseResearchSummary),
       actions.runPreMortem(currentIdea, phaseResearchSummary),
       actions.runDebateEngine(currentIdea, phaseResearchSummary),
+      actions.runCompetitiveResponse(currentIdea, phaseResearchSummary),
     ]);
 
     if (wave3[0].status === 'fulfilled') { interrogationData = (wave3[0] as PromiseFulfilledResult<any>).value; addLog('Stress test readiness ✓'); }
@@ -239,12 +239,18 @@ export default function Home() {
     if (wave3[2].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, debate: (wave3[2] as PromiseFulfilledResult<any>).value })); addLog('Adversarial debate complete ✓'); }
     else { failed.push('Debate Engine'); addLog('⚠️ Debate failed'); }
 
+    if (wave3[3].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, competitiveResponse: (wave3[3] as PromiseFulfilledResult<any>).value })); addLog('Competitive retaliation simulated ✓'); }
+    else { failed.push('Competitive Response'); addLog('⚠️ Competitive Response failed'); }
+
     setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
+    const competitiveResponseDataObj = (wave3[3] as any).value;
+    const debateDataObj = (wave3[2] as any).value;
+
 
     // ═══ Phase 7: Failure scenarios (depends on pre-mortem + all phases) ═══
     try {
       setPhase(7); setPhaseName('Expert Stress Test');
-      p7 = await actions.runPhase7Failures(idea, preMortemData, { p1, p2, p3, p4, p5, p6, p_fit });
+      p7 = await actions.runPhase7Failures(currentIdea, preMortemData, { p1, p2, p3, p4, p5, p6, p_fit });
       setRawData((prev: any) => ({ ...prev, p7 }));
       addLog('Stress test ✓');
     } catch (err) { failed.push('Expert Stress Test'); addLog('⚠️ Phase 7 failed'); }
@@ -252,7 +258,20 @@ export default function Home() {
     // ═══ Final Scoring ═══
     try {
       setPhase(8); setPhaseName('Final Scoring'); addLog('Synthesizing Master Verdict...');
-      const finalResult = await actions.finalizeAudit(idea, interrogationData, preMortemData, { p1, p2, p3, p4, p5, p6, p7, p_fit }, evidence);
+      const finalResult = await actions.finalizeAudit(
+        currentIdea, 
+        interrogationData, 
+        preMortemData, 
+        { 
+          p1, p2, p3, p4, p5, p6, p7, p_fit, 
+          p9: (wave2[2] as any).value,
+          p10: (wave2[3] as any).value,
+          debate: debateDataObj, 
+          competitiveResponse: competitiveResponseDataObj 
+        }, 
+        evidence
+      );
+
       setResult(finalResult);
       setPhase(10);
     } catch (err) {
@@ -653,108 +672,192 @@ export default function Home() {
           </div>
         )}
 
-        {/* SCOREBOARD VIEW */}
-        {result && !showFullReport && (
-          <div className="animate-fade-in space-y-12">
-            <div className="glass-card !bg-purple-900/10 border-purple-500/50 p-10 text-center shadow-2xl print:shadow-none print:border print:border-gray-300">
-              <div className="flex justify-center gap-6 mb-8 flex-wrap">
-                  {Object.entries(result.compositeScores || {}).slice(0, 5).map(([key, value]) => (
-                    <div key={key} className="px-6 py-3 glass rounded-xl border border-white/5 flex flex-col items-center min-w-[120px] print:border-gray-300">
-                      <span className="text-[10px] uppercase text-gray-400 font-black mb-1 tracking-widest print:text-gray-600">{key.replace(/([A-Z])/g, ' $1')}</span>
-                      <span className="text-3xl font-black text-white print:text-black">{String(value)}%</span>
-                    </div>
-                  ))}
-              </div>
-              <h3 className="text-5xl lg:text-6xl font-black mb-8 italic leading-tight max-w-5xl mx-auto drop-shadow-lg text-white print:text-black print:drop-shadow-none">
-                "{renderSafe(result.verdictLabel)}"
-              </h3>
-              <div className="flex justify-center">
-                  <span className={`px-10 py-3 rounded-full font-black tracking-widest uppercase text-xl border-2 ${
-                    result.verdict === '🚀' || result.verdict === '✅' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
-                    result.verdict === '❌' ? 'border-red-500/50 text-red-400 bg-red-500/10' : 'border-yellow-500/50 text-yellow-400 bg-yellow-500/10'
-                  }`}>
-                    VERDICT: {result.verdict}
-                  </span>
-              </div>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* Dimension Heatmap with ALWAYS-VISIBLE explanations */}
-              <section className="glass-card">
-                <h4 className="text-2xl font-black mb-8 border-b border-white/10 pb-4 text-purple-400 uppercase tracking-tighter print:text-purple-700">Dimension Heatmap</h4>
-                <div className="space-y-6">
-                    {result.scores && Object.entries(result.scores).map(([name, data]: [string, any]) => {
-                      const score = Number(data.score || data);
-                      return (
-                        <div key={name}>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-sm font-bold text-gray-300 tracking-wide uppercase print:text-gray-700">{name.replace(/_/g, ' ')}</span>
-                            <span className={`font-black text-lg ${score <= 4 ? 'text-red-400' : score <= 6 ? 'text-yellow-400' : 'text-purple-400'}`}>{score}/10</span>
-                          </div>
-                          <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-2 print:bg-gray-200">
-                            <div className={`h-full transition-all duration-1000 ${score <= 4 ? 'bg-gradient-to-r from-red-800 to-red-500' : score <= 6 ? 'bg-gradient-to-r from-yellow-700 to-yellow-500' : 'bg-gradient-to-r from-purple-800 to-purple-500'}`} style={{ width: `${score * 10}%` }} />
-                          </div>
-                          {data.reason && (
-                            <p className={`text-xs italic leading-snug mb-1 ${score <= 5 ? 'text-red-300 font-medium' : 'text-gray-500'}`}>{data.reason}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              </section>
-
-              <div className="space-y-8">
-                <div className="glass-card bg-purple-500/5">
-                  <h4 className="text-xs font-black text-purple-400 uppercase mb-4 tracking-widest">Master Reasoning</h4>
-                  <p className="text-sm text-gray-300 leading-relaxed font-medium">{result.reasoning}</p>
-                  {result.conflictResolution && (
-                    <div className="mt-4 pt-4 border-t border-purple-500/20">
-                      <h5 className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2">⚔️ Council Conflict Resolution</h5>
-                      <p className="text-sm text-gray-400 italic leading-relaxed">{result.conflictResolution}</p>
-                    </div>
-                  )}
-                </div>
-                
-                {challenges && (
-                  <div className="glass-card border-l-4 border-orange-500 bg-orange-500/5">
-                    <h4 className="text-xs font-black text-orange-500 uppercase mb-4 tracking-widest">Critical Challenges</h4>
-                    <div className="space-y-4">
-                      {challenges.interrogation?.questions?.slice(0, 3).map((q: any, i: number) => (
-                        <div key={i} className="text-sm p-3 bg-white/5 rounded-lg border border-white/5">
-                          <p className="font-black text-white mb-1">Q: {renderSafe(q.text || q.question)}</p>
-                          <p className="text-xs text-red-400 italic">Impact: {renderSafe(q.conflictNugget)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="glass-card border-l-4 border-green-500 bg-green-500/5">
-                      <h4 className="text-xs font-black text-green-500 uppercase mb-4 tracking-widest">Winnability Factors</h4>
-                      <ul className="space-y-3">
-                          {result.expertSignals?.green?.map((r: string, i: number) => (
-                            <li key={i} className="text-sm text-gray-300 flex items-start gap-3"><span className="text-green-500 font-bold">✓</span> {renderSafe(r)}</li>
-                          ))}
-                      </ul>
-                  </div>
-                  <div className="glass-card border-l-4 border-red-500 bg-red-500/5">
-                      <h4 className="text-xs font-black text-red-500 uppercase mb-4 tracking-widest">Critical Vulnerabilities</h4>
-                      <ul className="space-y-3">
-                          {result.expertSignals?.red?.map((r: string, i: number) => (
-                            <li key={i} className="text-sm text-gray-300 flex items-start gap-3"><span className="text-red-500 font-bold">⚠️</span> {renderSafe(r)}</li>
-                          ))}
-                      </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* FULL DOSSIER VIEW — continued in next section */}
+        {/* STRATEGIC DOSSIER VIEW */}
         {result && showFullReport && (
           <div className="animate-fade-in space-y-20 pb-24 dossier-view relative print:space-y-8">
+             {/* 0. Strategic Ground Truth Header */}
+             <div className="mb-12 animate-slide-up">
+                <div className="flex justify-between items-end mb-8">
+                   <div className="text-left">
+                      <h2 className="text-5xl font-black text-white tracking-tighter uppercase">{idea.name}</h2>
+                      <p className="text-gray-400 font-serif italic text-xl mt-2">"The Strategic Ground Truth Synthesis"</p>
+                   </div>
+                   <div className="text-right">
+                      <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Verdict Status</span>
+                      <span className={`px-6 py-2 rounded-full text-lg font-black uppercase border-2 ${
+                         result.verdict === 'Greenlit for Testing' ? 'border-green-500 text-green-500 bg-green-500/10' :
+                         result.verdict === 'Pivot Required' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/10' :
+                         'border-red-500 text-red-500 bg-red-500/10'
+                      }`}>{result.verdict || 'Indicted'}</span>
+                   </div>
+                </div>
+
+                <div className="grid lg:grid-cols-3 gap-6">
+                   <div className="p-8 bg-purple-500/5 border border-purple-500/20 rounded-3xl relative overflow-hidden group hover:border-purple-500/40 transition-all">
+                      <div className="relative z-10">
+                         <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block mb-1">The Core Bet</span>
+                         <p className="text-xl text-white font-bold leading-tight">"{result.coreBet}"</p>
+                      </div>
+                      <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl group-hover:scale-110 transition-transform">🎯</div>
+                   </div>
+                   <div className="p-8 bg-green-500/5 border border-green-500/20 rounded-3xl relative overflow-hidden group hover:border-green-500/40 transition-all">
+                      <div className="relative z-10">
+                         <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Cheapest Test ($500)</span>
+                         <p className="text-xl text-white font-bold leading-tight">"{result.cheapestTest}"</p>
+                      </div>
+                      <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl group-hover:scale-110 transition-transform">⚡</div>
+                   </div>
+                   <div className="p-8 bg-red-500/5 border border-red-500/20 rounded-3xl relative overflow-hidden group hover:border-red-500/40 transition-all">
+                      <div className="relative z-10">
+                         <span className="text-[10px] font-black text-red-400 uppercase tracking-widest block mb-1">The Stop Signal</span>
+                         <p className="text-xl text-white font-bold leading-tight">"{result.stopSignal}"</p>
+                      </div>
+                      <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl group-hover:scale-110 transition-transform">🛑</div>
+                   </div>
+                </div>
+             </div>
+
+             {/* I. Critical Assumption Stack */}
+             <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.2s' }}>
+                <h3 className="text-3xl font-black text-orange-500 flex items-center gap-4">
+                   <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">I</span>
+                   CRITICAL ASSUMPTION STACK
+                </h3>
+                <div className="grid gap-6">
+                   {result.criticalAssumptionStack?.map((item: any, i: number) => (
+                      <div key={i} className={`p-8 rounded-3xl border-l-[12px] ${
+                         item.lethality === 'Fatal' ? 'border-red-600 bg-red-600/5' : 'border-orange-500 bg-orange-500/5'
+                      } relative group hover:scale-[1.01] transition-all`}>
+                         <div className="flex justify-between items-start mb-6">
+                            <div className="flex items-center gap-4">
+                               <span className="text-4xl font-black opacity-20">0{item.rank || i+1}</span>
+                               <h4 className="text-2xl font-black text-white">{item.assumption}</h4>
+                            </div>
+                            <div className="flex gap-2">
+                               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${item.uncertainty === 'High' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                                  {item.uncertainty} Uncertainty
+                               </span>
+                               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${item.lethality === 'Fatal' ? 'bg-red-600 text-white' : 'bg-orange-500 text-white'}`}>
+                                  {item.lethality}
+                               </span>
+                            </div>
+                         </div>
+                         <div className="p-6 bg-black/40 rounded-2xl border border-white/5">
+                            <h5 className="text-[10px] font-black text-green-400 uppercase tracking-widest mb-3">Next 14-Day Test Agenda ($500 Max)</h5>
+                            <p className="text-sm text-gray-300 font-medium leading-relaxed italic">"{item.testAgenda}"</p>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </section>
+
+             {/* II. Strategic Intelligence Officer (Research) */}
+             {rawData.synthetic?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
+                   <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                      <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
+                         <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">II</span>
+                         STRATEGIC INTELLIGENCE (PRIMARY SIGNALS)
+                      </h3>
+                      <div className="text-right">
+                        <span className="text-[9px] text-gray-500 uppercase font-black block">Research Credibility</span>
+                        <div className="flex gap-1 mt-1">
+                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier1Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-green-500" title="Tier 1"></span>)}
+                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier2Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-blue-500" title="Tier 2"></span>)}
+                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier3Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-yellow-500" title="Tier 3"></span>)}
+                        </div>
+                      </div>
+                   </div>
+                   
+                   <p className="text-sm text-gray-400 italic">"{rawData.synthetic.parsed.researchCredibility?.summary}"</p>
+
+                   <div className="grid lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        {rawData.synthetic.parsed.insights?.map((insight: any, i: number) => (
+                           <div key={i} className="glass-card !bg-white/5 border border-white/10 group hover:border-blue-500/30 transition-all">
+                              <div className="flex justify-between items-start mb-2">
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${insight.tier === 1 ? 'bg-green-500/20 text-green-400' : insight.tier === 2 ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                  Tier {insight.tier}: {insight.sourceType}
+                                </span>
+                                <span className={`text-[8px] font-black uppercase italic ${insight.verificationStatus === 'Confirmed' ? 'text-green-400' : 'text-orange-400'}`}>
+                                  {insight.verificationStatus}
+                                </span>
+                              </div>
+                              <p className="text-sm font-bold text-white mb-2 leading-tight">{insight.claim}</p>
+                              <p className="text-xs text-gray-400 leading-relaxed italic border-t border-white/5 pt-2 mt-2 group-hover:text-blue-200 transition-colors">
+                                <span className="text-[9px] font-black uppercase text-blue-400 mr-2">Brutal Truth:</span>
+                                {insight.brutalTruth}
+                              </p>
+                           </div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Simulated Discovery Interviews</h4>
+                        {rawData.synthetic.parsed.interviewTranscripts?.slice(0, 2).map((t: any, i: number) => (
+                          <div key={i} className="p-6 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                              <span className="text-4xl font-black">💬</span>
+                            </div>
+                            <span className="text-[9px] text-blue-400 font-black uppercase block mb-4">{t.persona}</span>
+                            <div className="space-y-3 mb-6 max-h-[150px] overflow-y-auto pr-2 scrollbar-thin">
+                              {t.dialogue?.map((d: any, idx: number) => (
+                                <div key={idx} className={`p-2 rounded-lg text-xs ${d.speaker === 'Founder' ? 'bg-white/5 ml-4' : 'bg-blue-500/10 mr-4 border border-blue-500/20'}`}>
+                                  <span className="font-black opacity-30 text-[8px] uppercase block mb-1">{d.speaker}</span>
+                                  {d.text}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 text-[10px] text-blue-100 font-bold italic leading-tight">
+                              "Keep in mind: {t.keyNugget}"
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                   </div>
+                </section>
+             )}
+
+             {/* III. Financial Survival Skeleton */}
+             {rawData.p10?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.6s' }}>
+                   <h3 className="text-3xl font-black text-green-500 flex items-center gap-4">
+                      <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">III</span>
+                      FINANCIAL SURVIVAL SKELETON
+                   </h3>
+                   <div className="grid lg:grid-cols-4 gap-4">
+                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Max Affordable CAC</span>
+                         <span className="text-3xl font-black text-green-400">${rawData.p10.parsed.maxAffordableCAC}</span>
+                      </div>
+                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Min Survival Churn</span>
+                         <span className="text-3xl font-black text-red-500">{rawData.p10.parsed.minSurvivalChurn}%</span>
+                      </div>
+                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Min Target ACV</span>
+                         <span className="text-3xl font-black text-white">${rawData.p10.parsed.minTargetACV}</span>
+                      </div>
+                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Payback Limit</span>
+                         <span className="text-3xl font-black text-blue-400">{rawData.p10.parsed.paybackLimitMonths} Mo</span>
+                      </div>
+                   </div>
+                   <div className="glass-card !bg-green-500/5 border-green-500/20">
+                      <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Breakeven Conditions</h4>
+                      <p className="text-lg text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.p10.parsed.breakevenConditions}"</p>
+                      <div className="grid lg:grid-cols-3 gap-6">
+                        {rawData.p10.parsed.stressTests?.map((test: any, i: number) => (
+                           <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
+                              <span className="text-[10px] text-orange-400 font-black uppercase block mb-1">Stress: {test.scenario}</span>
+                              <p className="text-xs text-gray-400 leading-tight">{test.impact}</p>
+                           </div>
+                        ))}
+                      </div>
+                   </div>
+                </section>
+             )}
+
              {/* Dossier Header */}
              <div className="glass-card p-12 bg-purple-500/5 border-purple-500/30 text-center print:bg-white print:border print:border-purple-300">
                 <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-white leading-none print:text-black">DOSSIER: {idea.name}</h2>
@@ -904,6 +1007,75 @@ export default function Home() {
                  )}
               </section>
 
+              {/* II. Synthetic Primary Research (TIERED) */}
+              {rawData.synthetic?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
+                   <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                      <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
+                         <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">II</span>
+                         STRATEGIC INTELLIGENCE (PRIMARY SIGNALS)
+                      </h3>
+                      <div className="text-right">
+                        <span className="text-[9px] text-gray-500 uppercase font-black block">Research Credibility</span>
+                        <div className="flex gap-1 mt-1">
+                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier1Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-green-500" title="Tier 1"></span>)}
+                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier2Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-blue-500" title="Tier 2"></span>)}
+                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier3Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-yellow-500" title="Tier 3"></span>)}
+                        </div>
+                      </div>
+                   </div>
+                   
+                   <p className="text-sm text-gray-400 italic">"{rawData.synthetic.parsed.researchCredibility?.summary}"</p>
+
+                   <div className="grid lg:grid-cols-2 gap-8">
+                      {/* Insights List */}
+                      <div className="space-y-4">
+                        {rawData.synthetic.parsed.insights?.map((insight: any, i: number) => (
+                           <div key={i} className="glass-card !bg-white/5 border border-white/10 group hover:border-blue-500/30 transition-all">
+                              <div className="flex justify-between items-start mb-2">
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${insight.tier === 1 ? 'bg-green-500/20 text-green-400' : insight.tier === 2 ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                  Tier {insight.tier}: {insight.sourceType}
+                                </span>
+                                <span className={`text-[8px] font-black uppercase italic ${insight.verificationStatus === 'Confirmed' ? 'text-green-400' : 'text-orange-400'}`}>
+                                  {insight.verificationStatus}
+                                </span>
+                              </div>
+                              <p className="text-sm font-bold text-white mb-2 leading-tight">{insight.claim}</p>
+                              <p className="text-xs text-gray-400 leading-relaxed italic border-t border-white/5 pt-2 mt-2 group-hover:text-blue-200 transition-colors">
+                                <span className="text-[9px] font-black uppercase text-blue-400 mr-2">Brutal Truth:</span>
+                                {insight.brutalTruth}
+                              </p>
+                           </div>
+                        ))}
+                      </div>
+
+                      {/* Transcripts (Refactored) */}
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Simulated Discovery Interviews</h4>
+                        {rawData.synthetic.parsed.interviewTranscripts?.slice(0, 2).map((t: any, i: number) => (
+                          <div key={i} className="p-6 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                              <span className="text-4xl font-black">💬</span>
+                            </div>
+                            <span className="text-[9px] text-blue-400 font-black uppercase block mb-4">{t.persona}</span>
+                            <div className="space-y-3 mb-6 max-h-[150px] overflow-y-auto pr-2 scrollbar-thin">
+                              {t.dialogue?.map((d: any, idx: number) => (
+                                <div key={idx} className={`p-2 rounded-lg text-xs ${d.speaker === 'Founder' ? 'bg-white/5 ml-4' : 'bg-blue-500/10 mr-4 border border-blue-500/20'}`}>
+                                  <span className="font-black opacity-30 text-[8px] uppercase block mb-1">{d.speaker}</span>
+                                  {d.text}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 text-[10px] text-blue-100 font-bold italic italic leading-tight">
+                              "Keep in mind: {t.keyNugget}"
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                   </div>
+                </section>
+              )}
+
               {/* III. Execution Dossier */}
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
@@ -1046,486 +1218,355 @@ export default function Home() {
               </section>
 
 
-              {/* V. Angel of Death */}
-              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.8s' }}>
-                 <h3 className="text-3xl font-black text-orange-500 flex items-center gap-4">
-                    <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">V</span>
-                    ANGEL OF DEATH: SURVIVAL SIMULATION
-                 </h3>
-                 {challenges?.preMortem && (
-                   <div className="space-y-8">
-                      <div className="flex items-center gap-6 flex-wrap">
-                         <div className="flex items-center gap-3">
-                            <span className="text-[10px] text-orange-400 font-black uppercase tracking-widest">Survival Odds</span>
-                            <span className={`text-3xl font-black ${(challenges.preMortem.survivalOdds || 0) <= 30 ? 'text-red-400' : 'text-orange-400'}`}>{challenges.preMortem.survivalOdds || '?'}%</span>
-                         </div>
-                         <span className="px-4 py-1 bg-orange-500/20 text-orange-400 rounded-full text-[10px] font-black uppercase">{challenges.preMortem.riskCategory || 'Unknown Risk'}</span>
-                      </div>
-                      <div className="glass-card !bg-orange-500/5 border-orange-500/30">
-                         <h4 className="text-xs font-black text-orange-500 uppercase tracking-widest mb-4">The Collapse Scenario</h4>
-                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic print:text-gray-700">"{renderSafe(challenges.preMortem.scenario)}"</p>
-                      </div>
-                      {challenges.preMortem.deathTimeline && (
-                         <div className="grid md:grid-cols-3 gap-4">
-                            {challenges.preMortem.deathTimeline.map((phase: any, i: number) => (
-                              <div key={i} className={`glass-card border-l-4 ${i === 0 ? 'border-yellow-500 !bg-yellow-500/5' : i === 1 ? 'border-orange-500 !bg-orange-500/5' : 'border-red-500 !bg-red-500/5'}`}>
-                                 <span className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-orange-500' : 'text-red-500'}`}>Month {phase.month}</span>
-                                 <h4 className="font-black text-white text-sm mb-2 print:text-black">{renderSafe(phase.event)}</h4>
-                                 <p className="text-xs text-gray-400 italic">{renderSafe(phase.description)}</p>
-                              </div>
-                            ))}
-                         </div>
-                      )}
-                      <div className="grid lg:grid-cols-2 gap-6">
-                         {challenges.preMortem.lurkingShadow && (
-                            <div className="p-6 bg-red-500/5 border-l-4 border-red-500 rounded-r-2xl">
-                               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400 block mb-2">⚡ The Lurking Shadow</span>
-                               <p className="text-sm text-gray-300 italic">"{renderSafe(challenges.preMortem.lurkingShadow)}"</p>
-                            </div>
-                         )}
-                         {challenges.preMortem.theQuestion && (
-                            <div className="p-6 bg-purple-500/5 border-l-4 border-purple-500 rounded-r-2xl">
-                               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400 block mb-2">🎯 The Critical Decision</span>
-                               <p className="text-sm text-white font-bold">"{renderSafe(challenges.preMortem.theQuestion)}"</p>
-                            </div>
-                         )}
-                      </div>
-                   </div>
-                 )}
-              </section>
-
-              {/* VI. Pressure Test — Interrogation Questions */}
-              {challenges?.interrogation?.questions && challenges.interrogation.questions.length > 0 && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.9s' }}>
-                   <h3 className="text-3xl font-black text-red-400 flex items-center gap-4">
-                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30 text-lg">⚡</span>
-                      PRESSURE TEST: CROSS-EXAMINATION
-                   </h3>
-                   <div className="flex items-center gap-4 mb-2">
-                      <span className="text-[10px] text-red-400 font-black uppercase tracking-widest">Interrogation Intensity</span>
-                      <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                         <div className="h-full bg-gradient-to-r from-red-800 to-red-500 transition-all" style={{ width: `${challenges.interrogation.pressureLevel || 50}%` }} />
-                      </div>
-                      <span className="text-red-400 font-black text-lg">{challenges.interrogation.pressureLevel || '?'}/100</span>
-                   </div>
-                   <div className="grid gap-6">
-                      {challenges.interrogation.questions.map((q: any, i: number) => (
-                         <div key={i} className="glass-card border-l-4 border-red-500 !bg-red-500/5">
-                            <div className="flex justify-between items-start mb-3">
-                               <span className="text-[10px] bg-red-500/20 text-red-400 px-3 py-1 rounded-full font-black uppercase">{q.category || 'Challenge'}</span>
-                               <span className="text-[10px] text-gray-500 font-mono">Q{i + 1}</span>
-                            </div>
-                            <p className="text-lg font-black text-white leading-tight mb-4 print:text-black">{renderSafe(q.text || q.question)}</p>
-                            <div className="p-3 bg-black/30 rounded-lg border border-red-500/10">
-                               <p className="text-[10px] text-red-400 uppercase font-black mb-1">Conflict Nugget</p>
-                               <p className="text-xs text-gray-400 italic">"{renderSafe(q.conflictNugget)}"</p>
-                            </div>
-                            {q.reasoning && (
-                               <p className="text-xs text-gray-500 mt-3 italic">Why fatal: {renderSafe(q.reasoning)}</p>
-                            )}
-                         </div>
-                      ))}
-                   </div>
-                </section>
-              )}
-
-              {/* VII. Roadmap */}
-              {result?.roadmap && (
-                <section className="animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1s' }}>
-                  <Roadmap roadmap={result.roadmap} />
-                </section>
-              )}
-
-              {/* VIII. Failure Scenarios */}
-              {rawData.p7?.parsed?.failureScenarios && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.2s' }}>
-                   <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
-                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">⚠</span>
-                      FAILURE SCENARIOS: TOP DEATH VECTORS
-                   </h3>
-                   {rawData.p7.parsed.mostLikelyDeathCause && (
-                     <div className="glass-card !bg-red-500/5 border-red-500/30 flex items-start gap-4">
-                        <span className="text-3xl">💀</span>
-                        <div>
-                           <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-1">Most Likely Death Cause</span>
-                           <p className="text-lg text-white font-bold print:text-black">{renderSafe(rawData.p7.parsed.mostLikelyDeathCause)}</p>
+              {/* V. Founder Capability Gap Interview */}
+              {rawData.p_fit?.parsed && (
+                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.9s' }}>
+                    <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
+                       <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">V</span>
+                       FOUNDER CAPABILITY GAP INTERVIEW
+                    </h3>
+                    <div className="grid lg:grid-cols-3 gap-6">
+                       <div className="lg:col-span-2 space-y-4">
+                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Authority Probe</h4>
+                          {rawData.p_fit.parsed.capabilityGapInterview?.map((q: any, i: number) => (
+                             <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-blue-500/30 transition-all">
+                                <div className="flex gap-4 items-start">
+                                   <span className="text-lg font-serif opacity-30 text-blue-400">?</span>
+                                   <div className="flex-1">
+                                      <p className="text-sm font-bold text-white mb-2">{q.question}</p>
+                                      <p className="text-[10px] text-gray-500 leading-relaxed italic">{q.whyItMatters}</p>
+                                   </div>
+                                   <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${q.severity === 'High' ? 'bg-red-500/20 text-red-500' : 'bg-orange-500/20 text-orange-500'}`}>
+                                      {q.severity} Gap
+                                   </span>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                       <div className="space-y-6">
+                          <div className="glass-card border-l-4 border-blue-500 !bg-blue-500/5">
+                             <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Missing Skillsets</h4>
+                             <ul className="space-y-3">
+                                {rawData.p_fit.parsed.missingSkillsets?.map((s: any, i: number) => (
+                                   <li key={i} className="text-xs text-gray-300 font-bold flex items-center gap-2">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                      {s}
+                                   </li>
+                                ))}
+                             </ul>
+                          </div>
+                           <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                              <span className="text-[9px] text-gray-500 uppercase font-black block mb-2">The Unfair Advantage</span>
+                              <p className="text-xs text-blue-100 font-bold italic leading-tight">"{rawData.p_fit.parsed.unfairAdvantage}"</p>
+                           </div>
                         </div>
                      </div>
-                   )}
-                   <div className="grid gap-4">
-                      {rawData.p7.parsed.failureScenarios.map((f: any, i: number) => (
-                         <div key={i} className="glass-card border-l-4 border-red-500 !bg-red-500/5">
-                            <div className="flex items-start justify-between gap-4 mb-3">
-                               <div className="flex items-center gap-3">
-                                  <span className="w-8 h-8 flex-shrink-0 bg-red-500/20 rounded-lg flex items-center justify-center text-red-400 font-black text-sm">#{f.rank || i + 1}</span>
-                                  <h4 className="font-black text-white text-lg print:text-black">{renderSafe(f.name)}</h4>
-                               </div>
-                               <div className="flex items-center gap-2 flex-shrink-0">
-                                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                    f.impact === 'fatal' ? 'bg-red-500/20 text-red-400' :
-                                    f.impact === 'severe' ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'
-                                  }`}>{f.impact || 'unknown'}</span>
-                               </div>
-                            </div>
-                            {f.trigger && (
-                               <div className="p-2 bg-black/20 rounded-lg mb-3 border border-red-500/10">
-                                  <span className="text-[9px] text-red-400 font-black uppercase">Trigger: </span>
-                                  <span className="text-xs text-gray-300">{renderSafe(f.trigger)}</span>
-                               </div>
-                            )}
-                            <p className="text-sm text-gray-300 mb-3 italic">{renderSafe(f.scenario)}</p>
-                            <div className="flex items-center gap-3 mb-3">
-                               <span className="text-[10px] text-gray-500 font-black uppercase">Probability</span>
-                               <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                                  <div className={`h-full transition-all ${Number(f.probability) >= 70 ? 'bg-red-500' : Number(f.probability) >= 40 ? 'bg-orange-500' : 'bg-yellow-500'}`} style={{ width: `${f.probability || 50}%` }} />
-                               </div>
-                               <span className="text-xs font-black text-red-400">{f.probability || '?'}%</span>
-                            </div>
-                            {f.mitigation && (
-                               <div className="pt-3 border-t border-red-500/10">
-                                  <span className="text-[10px] text-green-400 font-black uppercase">💉 Mitigation: </span>
-                                  <span className="text-xs text-gray-300">{renderSafe(f.mitigation)}</span>
-                               </div>
-                            )}
-                         </div>
-                      ))}
-                   </div>
-                   {rawData.p7.parsed.founderTrap && (
-                     <div className="glass-card !bg-orange-500/5 border-orange-500/30">
-                        <span className="text-[10px] text-orange-400 font-black uppercase tracking-widest block mb-2">🪤 The Founder Trap</span>
-                        <p className="text-sm text-gray-300 italic">"{renderSafe(rawData.p7.parsed.founderTrap)}"</p>
-                     </div>
-                   )}
-                </section>
-              )}
+                  </section>
+               )}
 
-              {/* IX. Future Sandbox */}
-              {result.projections && (
-                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.4s' }}>
-                    <h3 className="text-3xl font-black text-green-400 flex items-center gap-4">
-                       <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">IX</span>
-                       FUTURE SANDBOX: 12-MONTH TRAJECTORY
-                    </h3>
-                    {result.futureSandbox && (
-                       <div className="grid lg:grid-cols-2 gap-6 mb-8">
-                         <div className="glass-card border-l-4 border-green-500 !bg-green-500/5">
-                            <h4 className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em] mb-3">🚀 Billion Dollar Path</h4>
-                            <p className="text-sm text-gray-300 leading-relaxed italic">"{renderSafe(result.futureSandbox.billionDollarPath)}"</p>
-                         </div>
-                         <div className="glass-card border-l-4 border-gray-600 !bg-white/5">
-                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">💀 Zombie Path</h4>
-                            <p className="text-sm text-gray-300 leading-relaxed italic">"{renderSafe(result.futureSandbox.zombiePath)}"</p>
-                         </div>
-                      </div>
-                    )}
-                    <div className="glass-card !bg-green-500/5 border-green-500/20">
-                      <p className="text-sm text-gray-400 mb-8 italic">{result.projections.summary}</p>
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                         {result.projections.dataPoints?.slice(-4).map((p: any, i: number) => (
-                           <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
-                              <span className="text-[10px] text-gray-500 uppercase block mb-1">Month {p.month} Rev</span>
-                              <span className="text-xl font-black text-green-400">${p.revenue?.toLocaleString()}</span>
-                              <p className="text-[9px] text-gray-500 mt-2 truncate">{p.milestone}</p>
-                           </div>
+             {/* VI. Pre-Mortem: Socratic Death Simulation */}
+             {rawData.preMortem?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.0s' }}>
+                   <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
+                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">IV</span>
+                      SOCRATIC DEATH SIMULATION
+                   </h3>
+                   <div className="grid lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Fatal Death Scenarios</h4>
+                         {rawData.preMortem.parsed.fatalScenarios?.map((s: any, i: number) => (
+                            <div key={i} className={`p-6 rounded-2xl border ${s.probability === 'High' ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-white/10'}`}>
+                               <h5 className="text-md font-black text-white mb-2 uppercase tracking-tighter">{s.name}</h5>
+                               <p className="text-xs text-gray-400 leading-relaxed mb-4 italic">"{s.description}"</p>
+                               <span className={`text-[8px] font-black uppercase px-2 py-1 rounded ${s.probability === 'High' ? 'bg-red-500/20 text-red-500' : 'bg-orange-500/20 text-orange-500'}`}>
+                                  Probability: {s.probability}
+                               </span>
+                            </div>
                          ))}
                       </div>
-                    </div>
-                 </section>
-              )}
-
-              {/* X. Tactical Blueprint */}
-              {result.blueprint && (
-                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.6s' }}>
-                    <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                       <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">X</span>
-                       TACTICAL 30-DAY BLITZ PLAN
-                    </h3>
-                    <div className="grid lg:grid-cols-4 gap-4">
-                       {result.blueprint.weeks?.map((w: any) => (
-                         <div key={w.week} className="glass-card border-t-4 border-purple-500">
-                            <h4 className="text-lg font-black text-white mb-2 underline decoration-purple-500/50 print:text-black">WEEK {w.week}</h4>
-                            <p className="text-[10px] text-purple-400 uppercase font-black mb-4">{w.focus}</p>
-                            <ul className="space-y-4">
-                               {w.tasks?.map((t: any, idx: number) => (
-                                 <li key={idx} className="group cursor-pointer">
-                                    <div className="flex gap-3">
-                                       <span className="w-5 h-5 flex-shrink-0 border border-white/20 rounded flex items-center justify-center text-[10px] font-bold">{t.day}</span>
-                                       <p className="text-xs text-gray-300 leading-tight print:text-gray-700">{t.task}</p>
-                                    </div>
-                                 </li>
+                      <div className="space-y-6">
+                         <div className="glass-card !bg-red-500/5 border-red-500/20">
+                            <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-6 border-b border-red-500/10 pb-2">The Socratic Probe</h4>
+                            <div className="space-y-6">
+                               {rawData.preMortem.parsed.socraticDialogue?.map((d: any, i: number) => (
+                                  <div key={i} className="group">
+                                     <p className="text-sm font-black text-white italic group-hover:text-red-400 transition-colors">"{d.question}"</p>
+                                     <div className="flex justify-between mt-2">
+                                        <span className="text-[8px] text-gray-500 uppercase font-black">Targeting: {d.targetRisk}</span>
+                                        <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">{d.urgency}</span>
+                                     </div>
+                                  </div>
+                               ))}
+                            </div>
+                         </div>
+                         <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                            <h4 className="text-[9px] text-green-400 uppercase font-black mb-3">Immediate Countermeasures</h4>
+                            <ul className="space-y-2">
+                               {rawData.preMortem.parsed.immediateCountermeasures?.map((c: any, i: number) => (
+                                  <li key={i} className="text-[10px] text-gray-300 flex items-center gap-2">
+                                     <span className="w-1 h-1 rounded-full bg-green-500"></span>
+                                     {c}
+                                  </li>
                                ))}
                             </ul>
                          </div>
-                       ))}
-                    </div>
-                 </section>
-              )}
-
-              {/* XI. Strategic Pivot Engine */}
-              {result.pivots && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.8s' }}>
-                   <div className="p-1 text-center bg-red-500/20 rounded-t-2xl border-t border-x border-red-500/30">
-                     <p className="text-[10px] font-black tracking-[1em] uppercase py-2">Failure Vector Detected — Initiating Pivot Engine</p>
+                      </div>
                    </div>
-                   <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
-                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">XI</span>
-                      STRATEGIC PIVOT ENGINE
-                   </h3>
-                   <div className="grid lg:grid-cols-3 gap-6">
-                     {(Array.isArray(result.pivots) ? result.pivots : result.pivots?.pivots || []).map((p: any, i: number) => (
-                       <div key={i} className="glass-card border-l-4 border-red-500 !bg-red-500/5 hover:!bg-red-500/10 transition-all">
-                         <h4 className="text-xl font-black text-white mb-2 print:text-black">{renderSafe(p.name)}</h4>
-                         <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-black uppercase mb-4 inline-block">{renderSafe(p.shift)}</span>
-                         <p className="text-sm text-gray-300 mb-4 italic font-medium">"{renderSafe(p.logic)}"</p>
-                         <div className="pt-4 border-t border-red-500/20">
-                           <p className="text-[10px] text-red-400 uppercase font-black mb-1">New Opportunity</p>
-                           <p className="text-xs text-white font-bold print:text-black">{renderSafe(p.opportunity)}</p>
-                         </div>
-                       </div>
-                     ))}
+                   <div className="p-4 text-center border-y border-white/10 italic">
+                      <p className="text-lg font-serif text-gray-400">"{rawData.preMortem.parsed.closingThought}"</p>
                    </div>
                 </section>
-              )}
+             )}
 
-              {/* XII. Coroner's Case Files */}
-              {result.coronerReport && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2s' }}>
-                   <h3 className="text-3xl font-black text-gray-400 flex items-center gap-4">
-                      <span className="bg-white/10 w-10 h-10 flex items-center justify-center rounded-lg border border-white/30 font-serif">†</span>
-                      THE CORONER'S CASE FILES
-                   </h3>
-                   <div className="grid lg:grid-cols-3 gap-6">
-                     {(Array.isArray(result.coronerReport) ? result.coronerReport : []).map((c: any, i: number) => (
-                       <div key={i} className="glass-card border-l-4 border-gray-600 !bg-white/5 hover:!bg-white/10 transition-all">
-                         <h4 className="text-xl font-black text-white mb-2 uppercase print:text-black">{renderSafe(c.company)}</h4>
-                         <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg mb-4">
-                           <p className="text-[10px] text-red-500 uppercase font-bold mb-1">Fatal Mistake</p>
-                           <p className="text-xs text-red-100 font-medium leading-tight">{renderSafe(c.mistake)}</p>
-                         </div>
-                         <p className="text-sm text-gray-300 mb-6 italic">
-                           <span className="text-gray-500 font-bold uppercase text-[9px] block mb-1">Echo Logic:</span>
-                           "{renderSafe(c.echo)}"
-                         </p>
-                         <div className="pt-4 border-t border-white/5">
-                           <p className="text-[10px] text-green-400 uppercase font-black mb-1">The Vaccine</p>
-                           <p className="text-xs text-white font-bold print:text-black">{renderSafe(c.vaccine)}</p>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                </section>
-              )}
-
-              {/* XIII. Interactive Stress Test */}
-              <section className="space-y-8 animate-slide-up print:hidden" style={{ animationDelay: '2.2s' }}>
-                 <h3 className="text-3xl font-black text-orange-500/50 flex items-center gap-4">
-                    <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">X</span>
-                    INTERACTIVE STRESS TEST
-                 </h3>
-                 <div className="glass-card border-2 border-dashed border-white/10 !bg-transparent text-center p-12">
-                    <h4 className="text-xl font-black text-white mb-4">Challenge the Audit</h4>
-                    <p className="text-sm text-gray-400 mb-8 max-w-xl mx-auto">Found a pivot? Got more funding? Propose a change and see how it shifts your survival probability.</p>
-                    <div className="flex gap-4 max-w-2xl mx-auto">
-                       <input type="text" placeholder="e.g. 'What if I pivot to B2B enterprise sales?'" value={stressTestInput} onChange={(e) => setStressTestInput(e.target.value)}
-                         onKeyDown={(e) => { if (e.key === 'Enter' && stressTestInput.trim() && !stressTestLoading) { e.preventDefault(); (e.target as HTMLInputElement).closest('div')?.querySelector('button')?.click(); } }}
-                         className="flex-1 bg-white/5 border border-white/10 rounded-xl px-6 py-4 text-white font-black uppercase text-xs focus:border-orange-500 transition-all" />
-                       <button onClick={async () => {
-                            if (!stressTestInput.trim()) return;
-                            setStressTestLoading(true);
-                            setStressTestResult(null);
-                            try {
-                              const res = await actions.runStressTest(idea.name, stressTestInput, {
-                                scores: result.scores,
-                                verdict: result.verdict,
-                                reasoning: result.reasoning,
-                                compositeScores: result.compositeScores,
-                              });
-                              setStressTestResult(res);
-                            } finally {
-                              setStressTestLoading(false);
-                            }
-                         }} disabled={stressTestLoading || !stressTestInput.trim()} className={`px-8 font-black uppercase text-xs tracking-widest rounded-xl transition-all ${stressTestLoading ? 'bg-orange-500/50 text-black/50 cursor-wait' : 'bg-orange-500 text-black hover:bg-orange-400'}`}>
-                         {stressTestLoading ? '...' : 'Fire'}
-                       </button>
-                    </div>
-                    {stressTestResult && (
-                       <div className="mt-8 p-6 bg-white/5 rounded-2xl border border-orange-500/30 animate-scale-in text-left">
-                          <div className="flex justify-between items-center mb-4">
-                             <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${stressTestResult.impact === 'Positive' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-500'}`}>
-                                IMPACT: {stressTestResult.impact}
-                             </span>
-                             <span className="text-2xl font-black text-white">Delta: {stressTestResult.delta > 0 ? '+' : ''}{stressTestResult.delta}%</span>
-                          </div>
-                          <p className="text-sm text-gray-300 leading-relaxed italic mb-4">"{renderSafe(stressTestResult.logic)}"</p>
-                          {stressTestResult.dimensionShifts && (
-                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
-                                {stressTestResult.dimensionShifts.map((d: any, i: number) => (
-                                   <div key={i} className="p-2 bg-white/5 rounded-lg text-[10px]">
-                                      <span className="text-gray-500 uppercase font-black block">{d.dimension}</span>
-                                      <span className={`font-black ${d.to > d.from ? 'text-green-400' : 'text-red-400'}`}>{d.from} → {d.to}</span>
-                                   </div>
-                                ))}
-                             </div>
-                          )}
-                       </div>
-                    )}
-                 </div>
-              </section>
-
-              {/* XIV. Adversarial Debate Engine */}
-              {rawData.debate?.parsed && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.3s' }}>
-                   <div className="p-1 text-center bg-purple-500/20 rounded-t-2xl border-t border-x border-purple-500/30">
-                     <p className="text-[10px] font-black tracking-[1em] uppercase py-2">Multi-Agent Conflict Simulation — Consensus: {rawData.debate.parsed.debateScore}% Bullish</p>
-                   </div>
-                   <h3 className="text-3xl font-black text-white flex items-center gap-4">
-                      <span className="bg-white/10 w-10 h-10 flex items-center justify-center rounded-lg border border-white/30 text-lg">⚔</span>
-                      ADVERSARIAL DEBATE: BEAR VS BULL
+             {/* VII. Regulatory Capability Gap (IQ) */}
+             {rawData.p9?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.2s' }}>
+                   <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
+                      <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">V</span>
+                      REGULATORY IQ & CAPABILITY GAP
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
-                      <div className="glass-card border-l-4 border-red-500 !bg-red-500/5">
-                        <div className="flex items-center gap-2 mb-6">
-                          <span className="text-2xl">🐻</span>
-                          <h4 className="text-xs font-black text-red-500 uppercase tracking-widest">The Bear Agent</h4>
-                        </div>
-                        <p className="text-sm text-gray-300 italic leading-relaxed whitespace-pre-line">{rawData.debate.parsed.bearCase}</p>
-                      </div>
-                      <div className="glass-card border-l-4 border-green-500 !bg-green-500/5">
-                        <div className="flex items-center gap-2 mb-6">
-                          <span className="text-2xl">🐂</span>
-                          <h4 className="text-xs font-black text-green-500 uppercase tracking-widest">The Bull Agent</h4>
-                        </div>
-                        <p className="text-sm text-gray-300 italic leading-relaxed whitespace-pre-line">{rawData.debate.parsed.bullCase}</p>
-                      </div>
-                   </div>
-                   <div className="glass-card !bg-purple-500/5 border-purple-500/20">
-                      <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4">Master Synthesis (Ground Truth)</h4>
-                      <p className="text-lg text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.debate.parsed.groundTruth}"</p>
-                      <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
-                        <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest block mb-1">The Unresolved Conflict</span>
-                        <p className="text-xs text-orange-200/70">{rawData.debate.parsed.unresolvedConflict}</p>
-                      </div>
-                   </div>
-                </section>
-              )}
-
-              {/* XVI. Stress Test Results (Re-Audit Feed) */}
-              {stressResults.length > 0 && (
-                <section className="space-y-6 animate-slide-up print:hidden">
-                  <h3 className="text-xl font-black text-orange-400 flex items-center gap-3">
-                    <span className="w-8 h-8 flex items-center justify-center bg-orange-500/10 rounded border border-orange-500/30">⚡</span>
-                    RE-AUDIT FEED (STRESS TESTS)
-                  </h3>
-                  <div className="grid gap-4">
-                    {stressResults.map((sr) => (
-                      <div key={sr.id} className="glass-card border-l-4 border-orange-500 bg-orange-500/5 p-6 animate-in slide-in-from-right duration-500">
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <span className="text-[10px] text-gray-500 uppercase font-black">Proposed Change</span>
-                            <p className="text-sm font-bold text-white italic">"{sr.change}"</p>
-                          </div>
-                          <div className={`px-4 py-2 rounded-xl text-center ${sr.impact === 'Positive' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                            <span className="block text-[8px] uppercase font-black">Impact</span>
-                            <span className="text-xl font-black">{sr.delta > 0 ? '+' : ''}{sr.delta}%</span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-400 leading-relaxed mb-4">{sr.logic}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {sr.dimensionShifts?.map((shift: any, idx: number) => (
-                            <div key={idx} className="p-2 bg-white/5 rounded border border-white/5">
-                              <span className="text-[8px] text-gray-500 uppercase block truncate">{shift.dimension}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-gray-500 line-through">{shift.from}</span>
-                                <span className="text-xs font-black text-purple-400">→ {shift.to}</span>
-                              </div>
+                     <div className="space-y-6">
+                       <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">The 7 Critical Questions</h4>
+                       <div className="grid gap-4">
+                         {rawData.p9.parsed.criticalQuestions?.map((q: any, i: number) => (
+                            <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                               <p className="text-xs font-bold text-white mb-2 leading-tight">Q: {q.question}</p>
+                               <div className="flex justify-between">
+                                  <span className="text-[8px] text-gray-500 uppercase">Impact: {q.impact}</span>
+                                  <span className={`text-[8px] font-black uppercase ${q.priority === 'CRITICAL' ? 'text-red-500' : 'text-blue-400'}`}>{q.priority}</span>
+                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                         ))}
+                       </div>
+                     </div>
+                     <div className="space-y-6">
+                       <div className="glass-card !bg-purple-500/5 border-purple-500/20">
+                          <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4">Compliance Moat Strategy</h4>
+                          <p className="text-sm text-gray-200 font-bold italic leading-relaxed">"{rawData.p9.parsed.complianceMoat}"</p>
+                       </div>
+                       <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Required Strategic Advisors</h4>
+                          <div className="flex flex-wrap gap-2">
+                             {rawData.p9.parsed.requiredAdvisors?.map((a: string, i: number) => (
+                                <span key={i} className="px-3 py-1 bg-purple-500/10 text-purple-300 rounded-full text-[10px] font-black uppercase">{a}</span>
+                             ))}
+                          </div>
+                       </div>
+                       <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
+                          <span className="text-[9px] text-red-500 font-black uppercase tracking-widest block mb-1">Complexity Warning</span>
+                          <p className="text-xs text-gray-400 leading-tight">"{rawData.p9.parsed.regulatoryComplexity}"</p>
+                       </div>
+                     </div>
+                   </div>
                 </section>
-              )}
+             )}
 
-              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.5s' }}>
-                <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 p-8 rounded-3xl border border-purple-500/30 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
-                    <span className="text-9xl font-black">🚀</span>
-                  </div>
-                  <h3 className="text-4xl font-black text-white mb-2 italic tracking-tighter uppercase">The Execution Dashboard</h3>
-                  <p className="text-purple-400 font-bold mb-8 tracking-widest text-[10px] uppercase">Roadmap to $1M ARR & Liquidity</p>
-                  
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                      <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-white/10 pb-2">The Next 30 Days</h4>
+
+             {/* VIII. Competitive Retaliation Simulation */}
+             {rawData.competitiveResponse?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.4s' }}>
+                   <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
+                      <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">VI</span>
+                      COMPETITIVE RETALIATION SIMULATION
+                   </h3>
+                   <div className="grid lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
-                        {result.blueprint?.coreComponents?.slice(0, 3).map((comp: any, i: number) => (
-                          <div key={i} className="flex gap-4 items-start">
-                            <span className="w-6 h-6 rounded bg-purple-500/20 flex items-center justify-center text-[10px] font-black text-purple-400 shrink-0">0{i+1}</span>
-                            <div>
-                              <p className="text-sm font-bold text-white">{comp.name}</p>
-                              <p className="text-[10px] text-gray-500">{comp.description}</p>
+                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Incumbent Retaliation Playbook</h4>
+                         {rawData.competitiveResponse.parsed.retaliationMoves?.map((m: any, i: number) => (
+                            <div key={i} className={`p-6 rounded-2xl border ${m.lethality === 'Fatal' ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-white/10'}`}>
+                               <div className="flex justify-between items-start mb-4">
+                                  <span className="text-xs font-black text-white uppercase">{m.competitor}</span>
+                                  <span className={`text-[8px] font-black uppercase px-2 py-1 rounded ${m.lethality === 'Fatal' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}>
+                                     {m.lethality}
+                                  </span>
+                               </div>
+                               <h5 className="text-md font-bold text-white mb-2">{m.move}</h5>
+                               <p className="text-[10px] text-gray-400 italic">Probability: {m.probability}</p>
                             </div>
+                         ))}
+                      </div>
+                      <div className="space-y-6">
+                         <div className="glass-card !bg-orange-500/5 border-orange-500/20">
+                            <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-6">Silent Killers & Poison Pills</h4>
+                            <div className="space-y-4">
+                               {rawData.competitiveResponse.parsed.silentKillers?.map((k: string, i: number) => (
+                                  <div key={i} className="flex gap-3 items-start p-3 bg-black/20 rounded-lg border border-orange-500/10">
+                                     <span className="text-orange-500 mt-1">💀</span>
+                                     <p className="text-xs text-gray-300 italic">"{k}"</p>
+                                  </div>
+                               ))}
+                               {rawData.competitiveResponse.parsed.poisonPills?.map((p: string, i: number) => (
+                                  <div key={i} className="flex gap-3 items-start p-3 bg-red-500/5 rounded-lg border border-red-500/10">
+                                     <span className="text-red-500 mt-1">💊</span>
+                                     <p className="text-xs text-gray-400 italic">"{p}"</p>
+                                  </div>
+                               ))}
+                            </div>
+                         </div>
+                         <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                            <span className="text-[9px] text-green-400 font-black uppercase tracking-widest block mb-2">The Competitive Moat</span>
+                            <p className="text-sm text-gray-300 font-bold">"{rawData.competitiveResponse.parsed.competitiveMoat}"</p>
+                         </div>
+                      </div>
+                   </div>
+                </section>
+             )}
+
+             {/* IX. Adversarial Debate (Ground Truth) */}
+             {rawData.debate?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.6s' }}>
+                   <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
+                      <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">VII</span>
+                      ADVERSARIAL COUNCIL: GROUND TRUTH
+                   </h3>
+                   <div className="grid lg:grid-cols-2 gap-8">
+                     <div className="p-8 bg-blue-500/5 border border-blue-500/30 rounded-3xl">
+                       <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-6">The Synthesis</h4>
+                       <p className="text-xl text-white font-bold italic leading-relaxed mb-8">"{rawData.debate.parsed.groundTruth}"</p>
+                       <div className="space-y-3">
+                          <div className="p-3 bg-white/5 rounded-lg">
+                             <span className="text-[9px] text-gray-500 uppercase block mb-1">Unresolved Conflict</span>
+                             <p className="text-xs text-orange-400 italic">"{rawData.debate.parsed.unresolvedConflict}"</p>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
-                      <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Capital Velocity</h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Target Launch</span>
-                          <span className="text-white font-bold">{rawData.p4?.parsed?.timeToMVP || '3 Months'}</span>
+                          <div className="p-3 bg-white/5 rounded-lg">
+                             <span className="text-[9px] text-gray-500 uppercase block mb-1">Evidence Strength</span>
+                             <p className="text-xs text-green-400 font-black">{rawData.debate.parsed.evidenceStrength}</p>
+                          </div>
+                       </div>
+                     </div>
+                     <div className="space-y-4">
+                       <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Historical Precedent (Cite)</h4>
+                       <div className="p-6 bg-black/40 rounded-2xl border border-white/5 italic">
+                          <p className="text-sm text-gray-300">"{rawData.debate.parsed.historicalPrecedent}"</p>
+                       </div>
+                     </div>
+                   </div>
+                </section>
+             )}
+
+             {/* X. Execution Master Roadmap */}
+             {result.roadmap && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.8s' }}>
+                   <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
+                      <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 font-mono">X</span>
+                      THE INDUSTRIAL ROADMAP (BLITZ)
+                   </h3>
+                   <div className="grid lg:grid-cols-4 gap-4">
+                      {result.roadmap.weeks?.map((w: any) => (
+                        <div key={w.week} className="glass-card border-t-4 border-purple-500">
+                           <h4 className="text-lg font-black text-white mb-2 underline decoration-purple-500/50">WEEK {w.week}</h4>
+                           <p className="text-[10px] text-purple-400 uppercase font-black mb-4">{w.focus}</p>
+                           <ul className="space-y-4">
+                              {w.tasks?.map((t: any, idx: number) => (
+                                <li key={idx} className="group">
+                                   <div className="flex gap-3">
+                                      <span className="w-5 h-5 flex-shrink-0 border border-white/20 rounded flex items-center justify-center text-[10px] font-bold">{t.day}</span>
+                                      <p className="text-xs text-gray-300 leading-tight">{t.task}</p>
+                                   </div>
+                                </li>
+                              ))}
+                           </ul>
                         </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Breakeven ARR</span>
-                          <span className="text-white font-bold">${(rawData.p10?.parsed?.unitEconomics?.targetARPU || 100) * 1000}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Scale Multiple</span>
-                          <span className="text-green-400 font-black">10x - 50x</span>
-                        </div>
-                      </div>
+                      ))}
+                   </div>
+                </section>
+             )}
+
+             {/* XI. FINAL CONFLICT RESOLUTION & REASONING */}
+             <section className="glass-card bg-white/5 border-white/10 p-12 text-center animate-slide-up" style={{ animationDelay: '2s' }}>
+                <span className="text-[10px] text-gray-500 uppercase font-black block mb-4">Board Perspective</span>
+                <p className="text-2xl font-bold text-gray-200 leading-relaxed max-w-4xl mx-auto italic">"{result.reasoning}"</p>
+             </section>
+
+             {/* XII. Interactive Stress Test */}
+             <section className="glass-card border-purple-500/50 bg-purple-500/5 p-12 animate-slide-up" style={{ animationDelay: '2.2s' }}>
+                <div className="max-w-3xl mx-auto text-center">
+                   <h3 className="text-3xl font-black text-white mb-4">INTERACTIVE STRESS TEST</h3>
+                   <p className="text-gray-400 mb-8 italic text-sm">Challenge the business with a specific market shock or execution failure.</p>
+                   
+                   <div className="flex gap-4 mb-8">
+                      <input 
+                         type="text" 
+                         className="flex-1 bg-black/40 border-2 border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none transition-all font-bold placeholder:opacity-30"
+                         placeholder="e.g. 'Apple releases a built-in competitor for free'"
+                         value={stressTestInput}
+                         onChange={(e) => setStressTestInput(e.target.value)}
+                         onKeyDown={(e) => e.key === 'Enter' && !isStressTesting && stressTestInput && handleStressTest(stressTestInput)}
+                      />
                       <button 
-                        onClick={() => window.print()}
-                        className="w-full mt-6 py-3 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                         className={`px-10 py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-50`}
+                         onClick={() => handleStressTest(stressTestInput)}
+                         disabled={isStressTesting || !stressTestInput}
                       >
-                         Download Full Dossier (PDF)
+                         {isStressTesting ? 'SIMULATING...' : 'PROBE'}
                       </button>
-                    </div>
-                  </div>
+                   </div>
+
+                   {isStressTesting && (
+                      <div className="animate-pulse space-y-4 text-left">
+                         <div className="h-4 bg-white/5 rounded w-3/4" />
+                         <div className="h-4 bg-white/5 rounded w-1/2" />
+                      </div>
+                   )}
+
+                   {stressResults.length > 0 && (
+                      <div className="animate-slide-up text-left space-y-4">
+                         {stressResults.map((sr) => (
+                           <div key={sr.id} className="p-8 bg-black/40 rounded-3xl border border-white/10">
+                              <div className="flex items-center gap-3 mb-6">
+                                 <span className={`px-4 py-1 rounded-full text-xs font-black uppercase ${
+                                    sr.verdict === 'Lethal' ? 'bg-red-500/20 text-red-500' : 
+                                    sr.verdict === 'Severe' ? 'bg-orange-500/20 text-orange-500' : 'bg-green-500/20 text-green-400'
+                                 }`}>{sr.verdict || sr.impact} Impact</span>
+                              </div>
+                              <p className="text-xl text-white font-bold mb-6 italic leading-relaxed">"{renderSafe(sr.logic || sr.reasoning)}"</p>
+                              <div className="grid lg:grid-cols-2 gap-6">
+                                 <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                    <span className="text-[10px] text-green-400 font-black uppercase block mb-1">Survival Strategy</span>
+                                    <p className="text-xs text-gray-400 leading-tight">{renderSafe(sr.mitigation || sr.survivalStrategy)}</p>
+                                 </div>
+                                 <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                    <span className="text-[10px] text-yellow-500 font-black uppercase block mb-1">The Pivot Path</span>
+                                    <p className="text-xs text-gray-400 leading-tight">{renderSafe(sr.pivotPath)}</p>
+                                 </div>
+                              </div>
+                           </div>
+                         ))}
+                      </div>
+                   )}
                 </div>
-              </section>
+             </section>
 
-              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.4s' }}>
-                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">XI</span>
-                    FINAL COMMITTEE RESOLUTION
-                 </h3>
-                 <div className="glass-card !bg-purple-500/5 border-purple-500/30">
-                    <div className="grid lg:grid-cols-2 gap-12">
-                       <div className="space-y-6">
-                          <h4 className="text-xs font-black text-orange-400 uppercase tracking-widest">Internal Conflict Resolution</h4>
-                          <p className="text-lg leading-relaxed text-gray-300 font-bold italic print:text-gray-700">"{result.conflictResolution || "Simulation reached consensus."}"</p>
-                       </div>
-                       <div className="space-y-6">
-                          <h4 className="text-xs font-black text-green-400 uppercase tracking-widest">Master Trajectory</h4>
-                          <p className="text-2xl font-black text-white leading-tight mb-2 tracking-tighter uppercase print:text-black">{result.category || "General Admission"}</p>
-                          <p className="text-sm text-gray-400 leading-relaxed italic">{result.reasoning}</p>
-                       </div>
-                    </div>
-                 </div>
-              </section>
-
-              {/* Footer */}
-              <div className="pt-12 text-center print:hidden pb-20">
-                 <button onClick={() => { setResult(null); setPhase(-1); setPhaseName(''); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null); setStressTestLoading(false); setFailedPhases([]); setLogs([]); setStressTestInput(''); clearSaved(); }}
-                   className="px-16 py-5 border border-white/10 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 transition-all uppercase text-xs font-black tracking-[0.5em] hover:border-purple-500/40">
-                   Terminate Audit Instance
-                 </button>
-              </div>
-            </div>
-          )}
+             {/* Footer Actions */}
+             <div className="flex justify-center gap-6 mt-20 pt-20 border-t border-white/5">
+                <button 
+                  onClick={() => window.print()}
+                  className="px-8 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all"
+                >
+                  Download PDF Report
+                </button>
+                <button 
+                  onClick={() => {
+                     setResult(null);
+                     setPhase(0);
+                     setPhaseName('');
+                     setShowFullReport(false);
+                     setChallenges(null);
+                     setRawData({});
+                     setStressResults([]);
+                     setFailedPhases([]);
+                     setLogs([]);
+                     setStressTestInput('');
+                     clearSaved();
+                  }}
+                  className="px-8 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-black text-xs uppercase tracking-widest transition-all"
+                >
+                  Destroy & New Audit
+                </button>
+             </div>
+          </div>
+        )}
       </div>
     </main>
   );

@@ -24,8 +24,10 @@ import { syntheticResearch } from '@/lib/prompts/syntheticResearch';
 import { regulatoryAnalysis } from '@/lib/prompts/regulatoryAnalysis';
 import { financialAnalysis } from '@/lib/prompts/financialAnalysis';
 import { runDebate } from '@/lib/prompts/debateEngine';
+import { competitiveResponse } from '@/lib/prompts/competitiveResponse';
 
 import { safeJsonParse } from '@/lib/safeJsonParse';
+
 
 // New: Founder-Market Fit Phase
 export async function runFounderFit(idea: any) {
@@ -168,93 +170,69 @@ export async function runPhase7Failures(idea: any, simResponse: any, context: an
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-// FIX: finalScoring — structured confidence scores + thinkFast for post-verdict
-export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, collectedEvidence: any) {
-  // Extract confidence scores from each phase for the final scoring prompt
-  const phaseConfidences = {
-    problemConfidence: context.p1?.parsed?.confidenceScore ?? 'unknown',
-    competitorConfidence: context.p2?.parsed?.confidenceScore ?? 'unknown',
-    competitionScore: context.p3?.parsed?.competitionScore ?? 'unknown',
-    feasibilityConfidence: context.p4?.parsed?.confidenceScore ?? 'unknown',
-    marketConfidence: context.p5?.parsed?.confidenceScore ?? 'unknown',
-    differentiationConfidence: context.p6?.parsed?.confidenceScore ?? 'unknown',
-    founderFitScore: context.p_fit?.parsed?.score ?? 'unknown'
-  };
+export async function runCompetitiveResponse(idea: any, researchSummary: string) {
+  const ideaStr = JSON.stringify(idea);
+  const raw = await competitiveResponse(ideaStr, researchSummary);
+  return { raw, parsed: safeJsonParse(raw) };
+}
 
+// Refactored finalizeAudit — No more score-based branching
+export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, collectedEvidence: any) {
   const stageTag = idea.stage ? `\nSTARTUP STAGE: ${idea.stage}` : '';
   const inputStr = JSON.stringify(idea) 
     + stageTag
     + "\nFOUNDER FIT: " + JSON.stringify(context.p_fit?.parsed)
     + "\nINPUTS: " + JSON.stringify(answers) 
-    + "\nPHASE CONFIDENCE SCORES: " + JSON.stringify(phaseConfidences)
-    + (idea.whyNow ? `\nWHY NOW: ${idea.whyNow}` : '')
-    + (idea.tractionEvidence ? `\nTRACTION: ${idea.tractionEvidence}` : '')
-    + (idea.acquisitionChannel ? `\nMARKETING CHANNEL: ${idea.acquisitionChannel}` : '')
-    + "\n" + JSON.stringify(simResponse);
+    + "\nSIMULATION: " + JSON.stringify(simResponse)
+    + "\nDEBATE: " + JSON.stringify(context.debate?.parsed)
+    + "\nCOMPETITIVE RESPONSE: " + JSON.stringify(context.competitiveResponse?.parsed);
+
   const raw = await finalScoring(inputStr, JSON.stringify(context));
   const parsed = safeJsonParse(raw);
 
-  const avgScore = parsed.compositeScores ? 
-    Object.values(parsed.compositeScores as Record<string, number>).reduce((a, b) => a + b, 0) / Object.values(parsed.compositeScores).length
-    : 0;
-
   let extraData: any = {};
 
-  // Roadmap generation (parallel with others)
-  const roadmapPromise = generateRoadmap(JSON.stringify(idea), JSON.stringify({ verdict: parsed.verdictLabel, scores: parsed.scores, vulnerabilities: parsed.expertSignals?.red }));
+  const [projectionsRaw, blueprintRaw, roadmapRaw, pivotRaw] = await Promise.all([
+    generateProjections(JSON.stringify(idea), JSON.stringify(context), 50),
+    generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
+    generateRoadmap(JSON.stringify(idea), JSON.stringify({ verdict: parsed.coreBet, vulnerabilities: parsed.vulnerabilityScan })),
+    pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse))
+  ]);
 
-  if (avgScore >= 65) {
-    // Coroner + Projections + Blueprint + Roadmap all in parallel
-    const [coronerRaw, projectionsRaw, blueprintRaw, roadmapRaw] = await Promise.all([
-      coronerReport(JSON.stringify(idea), JSON.stringify(context)),
-      generateProjections(JSON.stringify(idea), JSON.stringify(context), avgScore),
-      generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
-      roadmapPromise
-    ]);
-    extraData.coronerReport = safeJsonParse(coronerRaw);
-    extraData.projections = safeJsonParse(projectionsRaw);
-    extraData.blueprint = safeJsonParse(blueprintRaw);
-    extraData.roadmap = safeJsonParse(roadmapRaw);
-  } else {
-    // Coroner + Pivots + Roadmap in parallel
-    const [coronerRaw, pivotRaw, roadmapRaw] = await Promise.all([
-      coronerReport(JSON.stringify(idea), JSON.stringify(context)),
-      pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse)),
-      roadmapPromise
-    ]);
-    extraData.coronerReport = safeJsonParse(coronerRaw);
-    extraData.pivots = safeJsonParse(pivotRaw);
-    extraData.roadmap = safeJsonParse(roadmapRaw);
-  }
-
+  extraData.projections = safeJsonParse(projectionsRaw);
+  extraData.blueprint = safeJsonParse(blueprintRaw);
+  extraData.roadmap = safeJsonParse(roadmapRaw);
+  extraData.pivots = safeJsonParse(pivotRaw);
   extraData.evidenceVault = collectedEvidence;
 
   return { ...parsed, ...extraData };
 }
 
-// Stress Test with full audit context
-export async function runStressTest(idea: string, change: string, auditSummary: { scores: any; verdict: string; reasoning: string; compositeScores: any }) {
-  const systemPrompt = `You are the "Stress Test Engine", an AI explicitly designed to re-evaluate startup metrics based on a user's proposed pivot or change.
-You MUST respond with valid JSON matching this exact schema:
+
+
+// Stress Test refactored for qualitative analysis
+export async function runStressTest(idea: string, change: string, auditSummary: { assumptions: any; reasoning: string }) {
+  const systemPrompt = `You are the "Strategic Stress Test Engine". 
+Evaluate how a proposed pivot or change affects the startup's "Critical Assumption Stack".
+Identify which assumptions are resolved, which are created, and how the overall risk profile shifts.
+
+You MUST respond with valid JSON:
 {
   "impact": "Positive" | "Negative" | "Neutral",
-  "delta": number, // an integer from -30 to +30 representing the percentage point shift in overall winnability
-  "logic": "string", // 2-3 sentences explaining WHY this change shifts the score
-  "dimensionShifts": [
-    { "dimension": "name", "from": current_score, "to": new_score, "reason": "why" }
+  "shiftReasoning": "string",
+  "assumptionDeltas": [
+    { "assumption": "name", "originalRisk": "string", "newRisk": "string", "logic": "why" }
   ]
 }`;
 
   const userPrompt = `IDEA: "${idea}"
 PROPOSED CHANGE: "${change}"
 
-CURRENT AUDIT STATE:
-- Verdict: ${auditSummary.verdict}
-- Composite Scores: ${JSON.stringify(auditSummary.compositeScores)}
+CURRENT STRATEGIC STATE:
+${JSON.stringify(auditSummary.assumptions)}
 - Reasoning: ${auditSummary.reasoning}
-- Dimension Scores: ${JSON.stringify(auditSummary.scores)}
 
-TASK: Evaluate how the proposed change would shift the startup's winnability relative to its CURRENT scores. Be specific about which dimensions improve or degrade. Return ONLY the requested JSON.`;
+TASK: Evaluate how the proposed change shifts the survival risk and the assumption stack. Return ONLY the requested JSON.`;
 
   const raw = await thinkFast([
     { role: 'system', content: systemPrompt },
@@ -262,3 +240,4 @@ TASK: Evaluate how the proposed change would shift the startup's winnability rel
   ], { jsonMode: true });
   return safeJsonParse(raw);
 }
+

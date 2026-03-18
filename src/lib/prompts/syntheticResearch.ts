@@ -5,45 +5,59 @@ export async function syntheticResearch(
   rawScrapedData: string
 ): Promise<string> {
   const prompt = `
-You are a "Synthetic Primary Researcher". Your job is to turn secondary web data (Reddit, G2, Indie Hackers, Trustpilot) into calibrated primary signals.
+You are a "Strategic Intelligence Officer". Your job is to classify raw web data into a 3-tier credibility framework.
+
+TIER SYSTEM:
+- **Tier 1 (Verified/Hard)**: SEC filings, official court records, verified founder post-mortems, company financial reports.
+- **Tier 2 (Analytical/Pro)**: Gartner/Forrester reports, credible tech journalism (TechCrunch, WSJ), specialized industry whitepapers.
+- **Tier 3 (Market Sentiment)**: Reddit, G2, Indie Hackers, Twitter, Trustpilot. (Valuable for "unfiltered truths" but not "confirmed data").
 
 IDEA:
 ${idea}
 
-RAW SCRAPED DATA (UNFILTERED):
+RAW SCRAPED DATA:
 ${rawScrapedData}
 
 TASK:
-1. **Sentiment Analysis**: Score the community sentiment for the problem and the proposed solution category. Use a scale of 1-10 (1 = Apathy/Hostility, 10 = Desperate Pain/High Demand).
-2. **Generate 3-5 Role-Played Interview Transcripts**: Create realistic, grounded interviews between a "Founder" and a "Target Customer". 
-   - These MUST be grounded in the real quotes and frustrations found in the RAW SCRAPED DATA.
-   - Each transcript should reveal a specific nuance, objection, or willingness-to-pay signal.
-3. **Identify "Unfiltered Truths"**: Extract 3-5 "brutal" insights that founders usually miss but customers talk about openly in forums (e.g., "Nobody actually cares about X, they just want Y to be cheaper").
+1. **Source Tiering**: Categorize the provided data into the 3 Tiers.
+2. **"Unfiltered Truths"**: Extract insights from Tier 3, but explicitly flag them as "SENTIMENT".
+3. **"Hard Counter-Evidence"**: Find any Tier 1 or Tier 2 data that contradicts the founder's assumptions.
+4. **Research Credibility Summary**: What percentage of this audit's research rests on Tier 3 vs Tiers 1/2?
 
 FORMAT:
 Return a JSON object:
 {
-  "sentimentScore": 7.5,
-  "sentimentAnalysis": "Why the community feels this way...",
+  "researchCredibility": {
+    "tier1Count": number,
+    "tier2Count": number,
+    "tier3Count": number,
+    "summary": "e.g. 'Highly speculative; 90% forum sentiment'"
+  },
+  "insights": [
+    {
+      "claim": "The specific market claim...",
+      "tier": 1 | 2 | 3,
+      "sourceType": "e.g. Reddit Thread | WSJ Article",
+      "verificationStatus": "Confirmed | Sentiment Only | Disproven",
+      "brutalTruth": "The unfiltered reality behind the claim."
+    }
+  ],
   "interviewTranscripts": [
     {
-      "persona": "The Skeptic | The Early Adopter | The Burdened Manager",
+      "persona": "The Skeptic | The Pro User",
       "dialogue": [
         { "speaker": "Founder", "text": "..." },
         { "speaker": "Customer", "text": "..." }
       ],
-      "keyNugget": "The specific insight gained from this role-play."
-    },
-    ...
-  ],
-  "unfilteredTruths": [
-    { "insight": "...", "confidence": 85, "source": "Reddit/G2/etc" }
+      "keyNugget": "Specific insight gained."
+    }
   ]
 }
 `;
 
   return await thinkDeep([
-    { role: 'system', content: 'You are a Master Researcher specialized in forum scraping and synthetic persona modeling. You turn scattered forum posts into high-fidelity customer signals.' },
+    { role: 'system', content: 'You are a Strategic Intelligence Officer specialized in distinguishing high-signal data from market noise. You value Tier 1 evidence above all else.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
 }
+

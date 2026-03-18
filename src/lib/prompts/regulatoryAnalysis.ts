@@ -5,7 +5,7 @@ export async function regulatoryAnalysis(
   researchSummary: string
 ): Promise<string> {
   const prompt = `
-You are a "Legal & Regulatory Strategy Specialist". Your job is to identify the "Indicted" status of a startup idea from an IP and Regulatory standpoint.
+You are a "Regulatory & Compliance Architect". Your job is to identify the non-obvious regulatory hurdles that kill startups.
 
 IDEA:
 ${idea}
@@ -14,33 +14,27 @@ RESEARCH CONTEXT:
 ${researchSummary}
 
 TASK:
-1. **IP Fortress Analysis**: 
-   - Is there a clear "Freedom to Operate"? 
-   - Are there obvious patent thickets or "IP landmines" in this industry (e.g., Fintech, Biotech, AI infrastructure)?
-   - What is the defendability of the core IP?
-2. **Regulatory Minefield**: 
-   - List the 3-5 most critical regulatory frameworks this startup MUST navigate (e.g., SOC2, GDPR, HIPAA, FINRA, FDA).
-   - Rate the "Regulatory Friction" from 1-10 (1 = Low, 10 = Existential/High Barrier).
-3. **The Compliance Moat**: 
-   - Can regulatory compliance be turned into a competitive moat/barrier to entry?
+1. **The 7 Critical Regulatory Questions**: Generate 7 highly specific "Yes/No" or "Quantitative" questions that the founder MUST be able to answer to prove they understand the regulatory landscape (e.g., 'Do you have a person-in-charge named for GDPR Article 27?').
+2. **The "Moat" Assessment**: How can compliance be used to block incumbents or newer competitors?
+3. **Required Advisor Personas**: Identify the 3 specific types of legal/regulatory experts the founder needs to hire *immediately* (e.g., 'BOPIS-specialist attorney', 'HIPAA-auditor').
 
 FORMAT:
 Return a JSON object:
 {
-  "ipScore": 85,
-  "regulatoryFriction": 4,
-  "keyLandmines": [
-    { "type": "IP/Legal", "risk": "...", "severity": "High" }
+  "criticalQuestions": [
+    { "question": "...", "whyItMatters": "...", "riskIfUnanswered": "High | Med | Low" }
   ],
-  "requiredCompliances": [
-    { "framework": "...", "priority": "CRITICAL", "timeline": "Pre-launch/Post-MVP" }
+  "complianceMoat": "Strategy to turn hurdles into defensive barriers.",
+  "requiredAdvisors": [
+    { "persona": "...", "expertiseRequired": "...", "hiringPriority": "Immediate | Post-Seed" }
   ],
-  "complianceMoatStrategy": "How to use these hurdles to block competitors."
+  "regulatoryComplexity": "Low | Moderate | High | Moonshot"
 }
 `;
 
   return await thinkDeep([
-    { role: 'system', content: 'You are an IP Attorney and Regulatory Consultant for Tier-1 Venture Capital firms.' },
+    { role: 'system', content: 'You are a Regulatory Strategist for high-stakes venture-backed companies in Fintech, Healthtech, and AI.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
 }
+

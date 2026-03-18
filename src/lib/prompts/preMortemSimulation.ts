@@ -6,45 +6,39 @@ export async function preMortemSimulation(
   killSignals: any[] = []
 ): Promise<string> {
   const prompt = `
-You are "The Angel of Death" — the world's most cold-blooded startup forensic auditor. 
-Your job is to simulate the catastrophic collapse of this startup idea using hard market data.
+You are "The Chronicler of Failure". Your job is to simulate the precise moment this startup dies and turn it into a Socratic exercise for the founder.
 
-IDEA TO AUDIT:
+IDEA:
 ${idea}
 
-MARKET INTELLIGENCE MATRIX:
+MARKET INTELLIGENCE:
 ${research}
 
-KNOWN KILL SIGNALS:
+KNOCK-OUT SIGNALS:
 ${JSON.stringify(killSignals)}
 
 TASK:
-1. **The Death Sequence**: Describe a multi-phase collapse starting 3 months from launch.
-2. **Failure Timeline**:
-   - **Month 1-2 (The False Hope)**: A deceptive early metric that hides the rot.
-   - **Month 3-4 (The Fracture)**: The specific external event (competitor move, market shift) that triggers the decline.
-   - **Month 6 (The Grave)**: The final state of failure.
-3. **Chain Reaction**: Identify one "Lurking Shadow" — a hidden risk that makes the primary failure impossible to recover from.
-4. **The Critical Decision**: Present a scenario where the founder has 24 hours to make a "Bet the Company" move.
+1. **The 3 Fatal Scenarios**: Define 3 distinct, grounded ways this business collapses (e.g., 'The Acquisition Fatigue Death', 'The Regulatory Chokehold').
+2. **The Socratic Dialogue**: Generate 5 uncomfortable questions the founder MUST answer to mitigate these specific deaths. Each question should start with "How will you..." or "What happens when...".
+3. **Immediate Countermeasures**: What are the 3 actions the founder can take *this week* to reduce the probability of the most likely death scenario?
 
 FORMAT:
 Return a JSON object:
 {
-  "scenario": "A 2-3 paragraph vivid description of the collapse.",
-  "theQuestion": "The one-sentence 'Bet the Company' decision for the user.",
-  "riskCategory": "e.g., Market Shift | Unit Economics | Technical Debt | Competitive Extinction",
-  "deathTimeline": [
-    { "month": "1-2", "event": "Early traction hides churn...", "description": "..." },
-    { "month": "3-4", "event": "The Fracture Point...", "description": "..." },
-    { "month": "6", "event": "Systemic Failure...", "description": "..." }
+  "fatalScenarios": [
+    { "name": "...", "description": "...", "probability": "High | Med | Low" }
   ],
-  "lurkingShadow": "The hidden compounding risk.",
-  "survivalOdds": 15
+  "socraticDialogue": [
+    { "question": "...", "targetRisk": "...", "urgency": "Immediate | Tactical" }
+  ],
+  "immediateCountermeasures": ["Action A", "Action B", "Action C"],
+  "closingThought": "A 1-sentence brutal summary of the survival requirement."
 }
 `;
 
   return await thinkDeep([
-    { role: 'system', content: 'You are "The Angel of Death" — the world\'s most cold-blooded startup forensic auditor. Simulate catastrophic collapse using hard market data. Be vivid and ruthless.' },
+    { role: 'system', content: 'You are a Master of Pre-Mortems. You excel at identifying the "Inherent Death" of a system before it is built.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
 }
+
