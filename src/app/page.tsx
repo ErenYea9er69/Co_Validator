@@ -18,7 +18,8 @@ const qualityColors = { red: 'bg-red-500', yellow: 'bg-yellow-500', green: 'bg-g
 export default function Home() {
   const [idea, setIdea] = useState({
     name: '', problem: '', solution: '', industry: '', targetAudience: '', monetization: '', competitorsInfo: '', stage: 'idea',
-    founderBackground: '', budget: '', locale: 'Global'
+    founderBackground: '', budget: '', locale: 'Global',
+    whyNow: '', tractionEvidence: '', targetPricing: '', acquisitionChannel: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -177,9 +178,11 @@ export default function Home() {
   // ─── Input quality indicators ───
   const problemQ = getInputQuality(idea.problem);
   const solutionQ = getInputQuality(idea.solution);
+  const whyNowQ = getInputQuality(idea.whyNow, 50);
+  const tractionQ = getInputQuality(idea.tractionEvidence, 40);
   const competitorsQ = getInputQuality(idea.competitorsInfo, 50);
   const monetizationQ = getInputQuality(idea.monetization, 30);
-  const overallReady = idea.name.length > 1 && idea.industry.length > 1 && problemQ.level !== 'red' && solutionQ.level !== 'red';
+  const overallReady = idea.name.length > 1 && idea.industry.length > 1 && problemQ.level !== 'red' && solutionQ.level !== 'red' && whyNowQ.level !== 'red';
 
   return (
     <main className="min-h-screen p-8 lg:p-24 bg-[radial-gradient(circle_at_50%_0%,#1a1a1a_0%,#0a0a0a_100%)] text-white font-sans scroll-smooth print:bg-white print:text-black">
@@ -326,6 +329,47 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Advanced VC Signals */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[10px] font-black uppercase text-purple-400 tracking-widest">The Catalyst (Why Now?)</label>
+                    <span className={`text-[9px] font-black uppercase ${whyNowQ.level === 'green' ? 'text-green-400' : 'text-yellow-400'}`}>{whyNowQ.label}</span>
+                  </div>
+                  <textarea value={idea.whyNow} onChange={(e) => setIdea({...idea, whyNow: e.target.value})}
+                    className="w-full bg-purple-500/5 border border-purple-500/20 rounded-lg p-3 h-20 focus:border-purple-500 outline-none transition-all text-xs resize-none"
+                    placeholder="Why today? Tech shift? Regulatory change? Market gap?" />
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Traction & Proof</label>
+                    <span className={`text-[9px] font-black uppercase ${tractionQ.level === 'green' ? 'text-green-400' : 'text-yellow-400'}`}>{tractionQ.label}</span>
+                  </div>
+                  <textarea value={idea.tractionEvidence} onChange={(e) => setIdea({...idea, tractionEvidence: e.target.value})}
+                    className="w-full bg-purple-500/5 border border-purple-500/20 rounded-lg p-3 h-20 focus:border-purple-500 outline-none transition-all text-xs resize-none"
+                    placeholder="List evidence: # of interviews, waitlist size, or pilot results." />
+                </div>
+              </div>
+
+              {/* GTM & Marketing */}
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-4">
+                <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Marketing & Growth Engine</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-1 uppercase font-bold">Acquisition Channel</label>
+                    <input type="text" value={idea.acquisitionChannel} onChange={(e) => setIdea({...idea, acquisitionChannel: e.target.value})}
+                      className="w-full bg-black/30 border border-white/5 rounded-lg p-2 text-xs focus:border-purple-500 outline-none"
+                      placeholder="e.g. SEO, TikTok, Direct Sales" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-1 uppercase font-bold">Target Price / Unit</label>
+                    <input type="text" value={idea.targetPricing} onChange={(e) => setIdea({...idea, targetPricing: e.target.value})}
+                      className="w-full bg-black/30 border border-white/5 rounded-lg p-2 text-xs focus:border-purple-500 outline-none"
+                      placeholder="e.g. \$49/mo, \$5k per contract" />
+                  </div>
+                </div>
+              </div>
+
               {/* Revenue Model */}
               <div>
                 <div className="flex justify-between items-center mb-2">
@@ -382,7 +426,11 @@ export default function Home() {
                 stage: 'idea',
                 founderBackground: '6 years as a Software Engineer with computer vision experience; certified personal trainer.',
                 budget: '$10,000 self-funded for MVP development',
-                locale: 'North America'
+                locale: 'North America',
+                whyNow: 'Advancements in lightweight mobile Computer Vision models (YOLOv8) allow for real-time form correction on devices without expensive cloud GPU overhead. Recent gyms are becoming more tech-integrated, and post-COVID health awareness is at an all-time high.',
+                tractionEvidence: 'Interviewed 25 gym-goers; 18 said they would pay \$10-20/mo to avoid the \$100/hr cost of a PT. Built a landing page with 450 signups in 2 weeks.',
+                targetPricing: '\$14.99/mo subscription with 70% gross margin.',
+                acquisitionChannel: 'Vertical TikTok/Instagram influencers in the corrective-exercise niche; SEO for "home gym form check".'
               })} className="w-full py-3 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-all border border-dashed border-white/10 rounded-xl hover:border-purple-500/30">
                 💡 Try Example Idea
               </button>

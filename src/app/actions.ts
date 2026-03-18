@@ -49,7 +49,9 @@ export async function runPhase1Problem(idea: any, initialContext: string) {
   const researchInput = evidence.answer
     ? `RESEARCH SUMMARY:\n${evidence.answer}\n\nRAW RESULTS:\n${JSON.stringify(evidence.results)}`
     : JSON.stringify(evidence.results);
-  const contextStr = idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '';
+  const contextStr = (idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '')
+    + (idea.whyNow ? `\nTHE CATALYST (WHY NOW): ${idea.whyNow}` : '')
+    + (idea.tractionEvidence ? `\nTRACTION/PROOF: ${idea.tractionEvidence}` : '');
   const raw = await validateProblem(ideaStr + contextStr + "\nCONTEXT: " + initialContext, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: evidence.results };
 }
@@ -90,6 +92,8 @@ export async function runPhase5Market(idea: any) {
     : JSON.stringify(pricingResults.results);
   const ideaWithMonetization = JSON.stringify(idea) 
     + (idea.monetization ? `\nREVENUE MODEL: ${idea.monetization}` : '')
+    + (idea.targetPricing ? `\nTARGET PRICING: ${idea.targetPricing}` : '')
+    + (idea.acquisitionChannel ? `\nACQUISITION CHANNEL: ${idea.acquisitionChannel}` : '')
     + (idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '')
     + (idea.locale ? `\nLOCALE: ${idea.locale}` : '');
   const raw = await validateMarket(ideaWithMonetization, researchInput);
@@ -97,7 +101,8 @@ export async function runPhase5Market(idea: any) {
 }
 
 export async function runPhase6Differentiation(idea: any, p2Raw: string) {
-  const raw = await validateDifferentiation(JSON.stringify(idea), p2Raw);
+  const context = idea.acquisitionChannel ? `\nPROPOSED ACQUISITION CHANNEL: ${idea.acquisitionChannel}` : '';
+  const raw = await validateDifferentiation(JSON.stringify(idea) + context, p2Raw);
   return { raw, parsed: safeJsonParse(raw) };
 }
 
@@ -131,6 +136,9 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
     + "\nFOUNDER FIT: " + JSON.stringify(context.p_fit?.parsed)
     + "\nINPUTS: " + JSON.stringify(answers) 
     + "\nPHASE CONFIDENCE SCORES: " + JSON.stringify(phaseConfidences)
+    + (idea.whyNow ? `\nWHY NOW: ${idea.whyNow}` : '')
+    + (idea.tractionEvidence ? `\nTRACTION: ${idea.tractionEvidence}` : '')
+    + (idea.acquisitionChannel ? `\nMARKETING CHANNEL: ${idea.acquisitionChannel}` : '')
     + "\n" + JSON.stringify(simResponse);
   const raw = await finalScoring(inputStr, JSON.stringify(context));
   const parsed = safeJsonParse(raw);

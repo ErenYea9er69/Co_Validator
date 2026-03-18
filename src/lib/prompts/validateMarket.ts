@@ -11,9 +11,10 @@ RESEARCH:
 ${research}
 
 TASK:
-1. **Monetization Reality**: How will this actually make money? Is it sustainable?
-2. **Capital Efficiency**: How much "burn" is required to reach first revenue?
-3. **Confidence Score**: 0-100.
+14. **Monetization Reality**: How will this actually make money? Is the user's \`targetPricing\` realistic for this audience?
+15. **Acquisition Efficiency**: Is the \`acquisitionChannel\` scalable? Compare the user's acquisition logic against industry benchmarks for CAC.
+16. **Capital Efficiency**: How much "burn" is required to reach first revenue?
+17. **Confidence Score**: 0-100.
 
 FORMAT:
 Return a JSON object:
@@ -21,11 +22,12 @@ Return a JSON object:
   "expert": "Unit Economics Specialist",
   "confidenceScore": 75,
   "verdict": "Cash Machine | High-Burn Bet | Unclear Path to $",
+  "marketingLogicAudit": "Critique of the proposed acquisition channel and pricing alignment.",
   "unitEconomicsReality": {
-    "ltv": "Estimate",
-    "cac": "Estimate",
-    "margin": "Estimate",
-    "payback": "Estimate"
+    "ltv": "Estimate based on pricing",
+    "cac": "Estimated cost to acquire via user's channel",
+    "margin": "Gross margin estimate",
+    "payback": "Time to recover CAC"
   },
   "reasoning": "Financial and market-sizing breakdown of how this scales."
 }

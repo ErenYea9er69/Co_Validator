@@ -14,54 +14,45 @@ EXPERT PHASE REPORTS:
 ${allPhaseResults}
 
 TASK:
-1. **16-Dimension Heatmap**: Score the idea from 1-10 on all standard dimensions.
-2. **COUNCIL CONFLICT RESOLUTION**: Detect where expert reports from different phases fundamentally conflict (e.g. Phase 3: Profit says "Goldmine", but Phase 6: Moat says "Commodity"). If such a conflict exists, trigger a hidden "Inter-Council Debate" to reach a high-confidence resolution before scoring.
-3. **Confidence Calibration**: Identify where the expert disagreement is highest and assign a "Council Discord" score (0-10).
-4. **Master Verdict**: Provide a final 🚀, ✅, ⚠️, or ❌.
+17. **Weighted Decision Heatmap**: Score the idea from 1-10 on the dimensions below. **CRITICAL**: Weight "Competition Realism," "Defensibility," and "Market Timing" 3x heavier than others. 
+18. **COUNCIL CONFLICT RESOLUTION**: Detect where expert reports from different phases fundamentally conflict. Specifically, look for "Marketing Friction" (e.g., Phase 5: Market says "Low CAC" but Phase 6: Moat says "No network effects").
+19. **Traction & Proof Audit**: Weight the user's \`tractionEvidence\` heavily. If proof is missing, apply a "Speculation Penalty" to the score.
+20. **Confidence Calibration**: Identify where the expert disagreement is highest.
+21. **Master Verdict**: Provide a final 🚀, ✅, ⚠️, or ❌.
 
 DIMENSIONS:
-Competition Realism, Pain Intensity, Buyer Urgency, Budget Clarity, Ease of MVP, Ease of Distribution, Speed to First Revenue, 
-Retention Potential, Capital Efficiency, Small-Team Feasibility, Defensibility, Expansion, Service Risk, Red Ocean Risk, 
-Team Execution Risk, Market Timing.
+Competition Realism (3x), Defensibility (3x), Market Timing (3x), Pain Intensity (2x), Buyer Urgency, Budget Clarity, Ease of MVP, 
+Distribution Feasibility (2x), Speed to First Revenue, Traction Proof (2x), Capital Efficiency, Small-Team Feasibility, 
+Expansion potential, Red Ocean Risk, Team Execution Risk, Unit Economics Logic (2x).
 
 FORMAT:
 Return a JSON object:
 {
   "scores": { 
-    "dimensionName": { "score": 1-10, "reason": "Why it got this score based on phase reports" },
+    "dimensionName": { "score": 1-10, "reason": "Why it got this score based on phase reports + inputs" },
     ... 
   },
   "compositeScores": {
-    "overallWinnability": 0-100,
+    "overallWinnability": 0-100, // Weighted average
     "cashFlowPotential": 0-100,
     "ventureScalePotential": 0-100,
     "soloFounderFeasibility": 0-100,
-    "marketTiming": 0-100,
+    "growthEngineRigor": 0-100, // New: Logic of GTM
     "councilDiscord": 0-10
   },
   "dataQuality": {
     "isSurfaceLevel": false,
-    "missingCriticalInfo": "Detailed explanation of what the user forgot (features, money, etc) and why it makes this audit speculative.",
-    "realityCheck": "A blunt warning if the input was too thin."
+    "missingCriticalInfo": "Detailed explanation...",
+    "realityCheck": "Blunt warning if traction/timing was ignored."
   },
-  "category": "winnability | boring-strong | venture-backable | solo-founder | ai-defensible | no-code-pivot",
+  "marketingLogicFriction": "Identify if pricing covers CAC logic provided in inputs.",
+  "category": "winnability | boring-strong | venture-backable | solo-founder | ai-defensible | marketing-heavy",
   "verdict": "🚀 | ✅ | ⚠️ | ❌",
   "verdictLabel": "Short punchy verdict description",
   "reasoning": "The Master Committee's synthesized logic.",
-  "conflictResolution": "If a conflict was detected, explain how the council resolved the debate.",
-  "futureSandbox": {
-    "billionDollarPath": "Detailed trajectory",
-    "zombiePath": "What leads to stagnation"
-  },
-  "unitEconomicsReality": {
-    "ltv": "Estimate",
-    "cac": "Estimate",
-    "payback": "Estimate",
-    "margin": "Estimate"
-  },
   "expertSignals": {
-    "green": ["Top 3 green signals from phase experts"],
-    "red": ["Top 3 red signals from phase experts"]
+    "green": ["Top 3 green signals"],
+    "red": ["Top 3 red signals"]
   }
 }
 `;
