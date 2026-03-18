@@ -228,6 +228,7 @@ export default function Home() {
       actions.runPreMortem(currentIdea, phaseResearchSummary),
       actions.runDebateEngine(currentIdea, phaseResearchSummary),
       actions.runCompetitiveResponse(currentIdea, phaseResearchSummary),
+      actions.runApathySimulation(currentIdea, phaseResearchSummary),
     ]);
 
     if (wave3[0].status === 'fulfilled') { interrogationData = (wave3[0] as PromiseFulfilledResult<any>).value; addLog('Stress test readiness ✓'); }
@@ -242,9 +243,13 @@ export default function Home() {
     if (wave3[3].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, competitiveResponse: (wave3[3] as PromiseFulfilledResult<any>).value })); addLog('Competitive retaliation simulated ✓'); }
     else { failed.push('Competitive Response'); addLog('⚠️ Competitive Response failed'); }
 
+    if (wave3[4].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, apathy: (wave3[4] as PromiseFulfilledResult<any>).value })); addLog('Customer apathy simulated ✓'); }
+    else { failed.push('Apathy Simulation'); addLog('⚠️ Apathy Simulation failed'); }
+
     setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
     const competitiveResponseDataObj = (wave3[3] as any).value;
     const debateDataObj = (wave3[2] as any).value;
+    const apathyDataObj = (wave3[4] as any).value;
 
 
     // ═══ Phase 7: Failure scenarios (depends on pre-mortem + all phases) ═══
@@ -267,7 +272,8 @@ export default function Home() {
           p9: (wave2[2] as any).value,
           p10: (wave2[3] as any).value,
           debate: debateDataObj, 
-          competitiveResponse: competitiveResponseDataObj 
+          competitiveResponse: competitiveResponseDataObj,
+          apathy: apathyDataObj
         }, 
         evidence
       );
@@ -701,10 +707,23 @@ export default function Home() {
                       <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl group-hover:scale-110 transition-transform">🎯</div>
                    </div>
                    <div className="p-8 bg-green-500/5 border border-green-500/20 rounded-3xl relative overflow-hidden group hover:border-green-500/40 transition-all">
-                      <div className="relative z-10">
-                         <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Cheapest Test ($500)</span>
-                         <p className="text-xl text-white font-bold leading-tight">"{result.cheapestTest}"</p>
-                      </div>
+                      <div className="relative z-10 space-y-4">
+                          <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Triple-Constraint Validation ($500 ea.)</span>
+                          <div className="grid gap-2">
+                             <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                                <span className="text-[9px] uppercase font-bold text-blue-400 block mb-0.5">Digital</span>
+                                <p className="text-[11px] text-gray-300 leading-tight">"{result.tests?.digital}"</p>
+                             </div>
+                             <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                                <span className="text-[9px] uppercase font-bold text-orange-400 block mb-0.5">Analog</span>
+                                <p className="text-[11px] text-gray-300 leading-tight">"{result.tests?.analog}"</p>
+                             </div>
+                             <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                                <span className="text-[9px] uppercase font-bold text-purple-400 block mb-0.5">Wizard of Oz</span>
+                                <p className="text-[11px] text-gray-300 leading-tight">"{result.tests?.wizardOfOz}"</p>
+                             </div>
+                          </div>
+                       </div>
                       <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl group-hover:scale-110 transition-transform">⚡</div>
                    </div>
                    <div className="p-8 bg-red-500/5 border border-red-500/20 rounded-3xl relative overflow-hidden group hover:border-red-500/40 transition-all">
@@ -816,112 +835,12 @@ export default function Home() {
                       </div>
                    </div>
                 </section>
-             )}
+              )}
 
-             {/* III. Financial Survival Skeleton */}
-             {rawData.p10?.parsed && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.6s' }}>
-                   <h3 className="text-3xl font-black text-green-500 flex items-center gap-4">
-                      <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">III</span>
-                      FINANCIAL SURVIVAL SKELETON
-                   </h3>
-                   <div className="grid lg:grid-cols-4 gap-4">
-                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
-                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Max Affordable CAC</span>
-                         <span className="text-3xl font-black text-green-400">${rawData.p10.parsed.maxAffordableCAC}</span>
-                      </div>
-                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
-                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Min Survival Churn</span>
-                         <span className="text-3xl font-black text-red-500">{rawData.p10.parsed.minSurvivalChurn}%</span>
-                      </div>
-                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
-                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Min Target ACV</span>
-                         <span className="text-3xl font-black text-white">${rawData.p10.parsed.minTargetACV}</span>
-                      </div>
-                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
-                         <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Payback Limit</span>
-                         <span className="text-3xl font-black text-blue-400">{rawData.p10.parsed.paybackLimitMonths} Mo</span>
-                      </div>
-                   </div>
-                   <div className="glass-card !bg-green-500/5 border-green-500/20">
-                      <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Breakeven Conditions</h4>
-                      <p className="text-lg text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.p10.parsed.breakevenConditions}"</p>
-                      <div className="grid lg:grid-cols-3 gap-6">
-                        {rawData.p10.parsed.stressTests?.map((test: any, i: number) => (
-                           <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
-                              <span className="text-[10px] text-orange-400 font-black uppercase block mb-1">Stress: {test.scenario}</span>
-                              <p className="text-xs text-gray-400 leading-tight">{test.impact}</p>
-                           </div>
-                        ))}
-                      </div>
-                   </div>
-                </section>
-             )}
-
-             {/* Dossier Header */}
-             <div className="glass-card p-12 bg-purple-500/5 border-purple-500/30 text-center print:bg-white print:border print:border-purple-300">
-                <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-white leading-none print:text-black">DOSSIER: {idea.name}</h2>
-                <div className="h-1 w-20 bg-purple-500 mx-auto mb-4" />
-                <p className="text-gray-500 uppercase tracking-widest text-xs font-black">Due Diligence Report • {new Date().toLocaleDateString()}</p>
-             </div>
-
-             {/* Data Quality Warning (also in dossier) */}
-             {result?.dataQuality?.isSurfaceLevel && (
-               <div className="glass-card border-red-500 !bg-red-500/5 print:border print:border-red-300">
-                  <div className="flex gap-4 items-center mb-4">
-                     <span className="text-4xl">⚠️</span>
-                     <div>
-                        <h3 className="text-xl font-black text-red-500 uppercase">Caution: Surface-Level Data</h3>
-                        <p className="text-gray-400 text-sm">{result.dataQuality.realityCheck}</p>
-                     </div>
-                  </div>
-                  <p className="text-gray-300 p-3 bg-red-500/10 rounded-lg text-sm">{result.dataQuality.missingCriticalInfo}</p>
-               </div>
-             )}
-
-             {/* Evidence Vault Toggle */}
-             <button onClick={() => setShowVault(true)}
-                className="fixed right-8 bottom-8 z-50 px-6 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 border-4 border-black group print:hidden">
-                <span className="bg-black text-white w-5 h-5 flex items-center justify-center rounded-full group-hover:rotate-12 transition-transform">i</span>
-                Evidence Vault
-             </button>
-
-             {/* Sliding Vault Panel */}
-             {showVault && (
-               <div className="fixed inset-0 z-[100] flex justify-end print:hidden">
-                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowVault(false)} />
-                  <div className="w-full max-w-xl h-full bg-[#0a0a0a] border-l border-white/10 p-12 overflow-y-auto animate-slide-in-right relative">
-                     <button onClick={() => setShowVault(false)} className="absolute top-8 right-8 text-gray-500 hover:text-white font-black">CLOSE [X]</button>
-                     <h3 className="text-3xl font-black text-white mb-8 underline decoration-purple-500">THE EVIDENCE VAULT</h3>
-                     <div className="space-y-12">
-                        {Object.entries(result.evidenceVault || {}).map(([phaseName, data]: any) => (
-                           Array.isArray(data) && data.length > 0 && (
-                           <div key={phaseName} className="space-y-4">
-                              <h4 className="text-xs font-black text-purple-400 uppercase tracking-[0.3em]">{phaseName.replace(/_/g, ' ')}</h4>
-                              <div className="grid gap-3">
-                                 {data.map((res: any, idx: number) => (
-                                    <div key={idx} className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/20 transition-all">
-                                       <p className="text-[10px] text-gray-500 mb-1 uppercase font-bold">{(() => { try { return new URL(res.url).hostname; } catch { return 'Source'; } })()}</p>
-                                       <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-white hover:text-purple-400 leading-tight block mb-2">{res.title || 'Untitled'}</a>
-                                       <p className="text-xs text-gray-400 line-clamp-2 italic">"{res.content || res.snippet || ''}"</p>
-                                    </div>
-                                 ))}
-                              </div>
-                           </div>
-                           )
-                        ))}
-                        {Object.keys(result.evidenceVault || {}).length === 0 && (
-                          <p className="text-gray-500 italic text-sm">No raw evidence collected for this audit.</p>
-                        )}
-                     </div>
-                  </div>
-               </div>
-             )}
-
-             {/* I. Problem & Evidence */}
-             <section className="space-y-8 animate-slide-up print:break-inside-avoid">
+             {/* III. Problem & Market Evidence */}
+             <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">I</span>
+                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">III</span>
                    PROBLEM & MARKET EVIDENCE
                 </h3>
                 {rawData.p1?.parsed && (
@@ -949,10 +868,10 @@ export default function Home() {
                 </div>
              </section>
 
-             {/* II. Competitive Landscape */}
-             <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.2s' }}>
+             {/* IV. Competitive Landscape */}
+             <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.6s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">II</span>
+                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IV</span>
                    COMPETITIVE LANDSCAPE
                 </h3>
                 <div className="grid lg:grid-cols-3 gap-6">
@@ -980,7 +899,7 @@ export default function Home() {
                    </div>
                 </div>
 
-                {/* II.5. Competition Heatmap */}
+                {/* III.5. Competition Heatmap */}
                 {rawData.p3?.parsed?.competitionDimensions && (
                   <div className="glass-card p-8 bg-[#0a0a0a] border-white/5 mt-6">
                      <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Market Dynamics Heatmap</h4>
@@ -1007,79 +926,133 @@ export default function Home() {
                  )}
               </section>
 
-              {/* II. Synthetic Primary Research (TIERED) */}
-              {rawData.synthetic?.parsed && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
-                   <div className="flex justify-between items-end border-b border-white/5 pb-4">
-                      <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
-                         <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">II</span>
-                         STRATEGIC INTELLIGENCE (PRIMARY SIGNALS)
-                      </h3>
-                      <div className="text-right">
-                        <span className="text-[9px] text-gray-500 uppercase font-black block">Research Credibility</span>
-                        <div className="flex gap-1 mt-1">
-                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier1Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-green-500" title="Tier 1"></span>)}
-                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier2Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-blue-500" title="Tier 2"></span>)}
-                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier3Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-yellow-500" title="Tier 3"></span>)}
-                        </div>
-                      </div>
-                   </div>
-                   
-                   <p className="text-sm text-gray-400 italic">"{rawData.synthetic.parsed.researchCredibility?.summary}"</p>
-
+              {/* V. Psychological Friction */}
+              {rawData.p5?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.7s' }}>
+                   <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
+                      <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">V</span>
+                      PSYCHOLOGICAL FRICTION
+                   </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
-                      {/* Insights List */}
-                      <div className="space-y-4">
-                        {rawData.synthetic.parsed.insights?.map((insight: any, i: number) => (
-                           <div key={i} className="glass-card !bg-white/5 border border-white/10 group hover:border-blue-500/30 transition-all">
-                              <div className="flex justify-between items-start mb-2">
-                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${insight.tier === 1 ? 'bg-green-500/20 text-green-400' : insight.tier === 2 ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                                  Tier {insight.tier}: {insight.sourceType}
-                                </span>
-                                <span className={`text-[8px] font-black uppercase italic ${insight.verificationStatus === 'Confirmed' ? 'text-green-400' : 'text-orange-400'}`}>
-                                  {insight.verificationStatus}
-                                </span>
-                              </div>
-                              <p className="text-sm font-bold text-white mb-2 leading-tight">{insight.claim}</p>
-                              <p className="text-xs text-gray-400 leading-relaxed italic border-t border-white/5 pt-2 mt-2 group-hover:text-blue-200 transition-colors">
-                                <span className="text-[9px] font-black uppercase text-blue-400 mr-2">Brutal Truth:</span>
-                                {insight.brutalTruth}
-                              </p>
-                           </div>
-                        ))}
+                      <div className="glass-card">
+                         <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Cognitive Load</h4>
+                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.parsed.cognitiveLoad)}"</p>
+                         <div className="mt-6 flex gap-4">
+                            <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
+                               <span className="text-[10px] text-gray-500 uppercase block mb-1">Decision Fatigue</span>
+                               <span className="font-black text-orange-400">{rawData.p5.parsed.decisionFatigue || "N/A"}</span>
+                            </div>
+                            <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
+                               <span className="text-[10px] text-gray-500 uppercase block mb-1">Learning Curve</span>
+                               <span className="font-black text-orange-400">{rawData.p5.parsed.learningCurve || "N/A"}</span>
+                            </div>
+                         </div>
                       </div>
-
-                      {/* Transcripts (Refactored) */}
-                      <div className="space-y-4">
-                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Simulated Discovery Interviews</h4>
-                        {rawData.synthetic.parsed.interviewTranscripts?.slice(0, 2).map((t: any, i: number) => (
-                          <div key={i} className="p-6 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-2 opacity-5">
-                              <span className="text-4xl font-black">💬</span>
+                      <div className="glass-card">
+                         <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Emotional Barriers</h4>
+                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.parsed.emotionalBarriers)}"</p>
+                         <div className="mt-6 flex gap-4">
+                            <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
+                               <span className="text-[10px] text-gray-500 uppercase block mb-1">Trust Deficit</span>
+                               <span className="font-black text-orange-400">{rawData.p5.parsed.trustDeficit || "N/A"}</span>
                             </div>
-                            <span className="text-[9px] text-blue-400 font-black uppercase block mb-4">{t.persona}</span>
-                            <div className="space-y-3 mb-6 max-h-[150px] overflow-y-auto pr-2 scrollbar-thin">
-                              {t.dialogue?.map((d: any, idx: number) => (
-                                <div key={idx} className={`p-2 rounded-lg text-xs ${d.speaker === 'Founder' ? 'bg-white/5 ml-4' : 'bg-blue-500/10 mr-4 border border-blue-500/20'}`}>
-                                  <span className="font-black opacity-30 text-[8px] uppercase block mb-1">{d.speaker}</span>
-                                  {d.text}
-                                </div>
-                              ))}
+                            <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
+                               <span className="text-[10px] text-gray-500 uppercase block mb-1">Fear of Change</span>
+                               <span className="font-black text-orange-400">{rawData.p5.parsed.fearOfChange || "N/A"}</span>
                             </div>
-                            <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 text-[10px] text-blue-100 font-bold italic italic leading-tight">
-                              "Keep in mind: {t.keyNugget}"
-                            </div>
-                          </div>
-                        ))}
+                         </div>
                       </div>
                    </div>
                 </section>
               )}
 
-              {/* III. Execution Dossier */}
-              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
+              {/* VI. Financial Survival Skeleton */}
+              {rawData.p10?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.8s' }}>
+                   <h3 className="text-3xl font-black text-green-500 flex items-center gap-4">
+                      <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">VI</span>
+                      FINANCIAL SURVIVAL SKELETON
+                   </h3>
+                   <div className="grid lg:grid-cols-4 gap-4">
+                       <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                          <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Max Affordable CAC</span>
+                          <span className="text-2xl font-black text-green-400 font-mono tracking-tighter">${rawData.p10.parsed.survivalSkeleton?.maxAffordableCAC}</span>
+                       </div>
+                       <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                          <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Min Survival Churn (180d)</span>
+                          <span className="text-2xl font-black text-red-500 font-mono tracking-tighter">{rawData.p10.parsed.survivalSkeleton?.minSurvivalChurn}%</span>
+                       </div>
+                       <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                          <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Burn to Milestone</span>
+                          <span className="text-2xl font-black text-orange-400 font-mono tracking-tighter">${rawData.p10.parsed.survivalSkeleton?.burnToFirstMilestone}</span>
+                       </div>
+                       <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
+                          <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">6-Mo ACV Floor</span>
+                          <span className="text-2xl font-black text-white font-mono tracking-tighter">${rawData.p10.parsed.survivalSkeleton?.minTargetACV}</span>
+                       </div>
+                   </div>
+                   <div className="glass-card !bg-green-500/5 border-green-500/20">
+                      <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Breakeven Conditions</h4>
+                      <p className="text-lg text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.p10.parsed.breakevenConditions}"</p>
+                      <div className="grid lg:grid-cols-3 gap-6">
+                        {rawData.p10.parsed.stressTests?.map((test: any, i: number) => (
+                           <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
+                              <span className="text-[10px] text-orange-400 font-black uppercase block mb-1">Stress: {test.scenario}</span>
+                              <p className="text-xs text-gray-400 leading-tight">{test.impact}</p>
+                           </div>
+                        ))}
+                      </div>
+                   </div>
+                </section>
+             )}
+
+             {/* VII. Apathy Simulator (USER INDIFFERENCE) */}
+              {rawData.apathy?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.0s' }}>
+                   <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                      <h3 className="text-3xl font-black text-red-400 flex items-center gap-4">
+                         <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">VII</span>
+                         APATHY SIMULATOR
+                      </h3>
+                      <div className="text-right">
+                         <span className="text-[9px] text-gray-500 uppercase font-black block">Apathy Score</span>
+                         <span className={`text-2xl font-black ${rawData.apathy.parsed.apathyScore < 4 ? 'text-red-500' : rawData.apathy.parsed.apathyScore < 7 ? 'text-orange-500' : 'text-green-500'}`}>
+                            {rawData.apathy.parsed.apathyScore}/10
+                         </span>
+                      </div>
+                   </div>
+
+                   <div className="grid lg:grid-cols-2 gap-8">
+                      <div className="p-8 bg-white/5 border border-white/10 rounded-3xl relative overflow-hidden">
+                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">The Indifference Argument</h4>
+                         <p className="text-xl text-white font-bold italic leading-relaxed mb-6">"{rawData.apathy.parsed.indifferenceArgument}"</p>
+                         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                            <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-2 font-mono">Switching Cost: {rawData.apathy.parsed.switchingCost}</span>
+                            <p className="text-xs text-gray-300 font-bold italic">"Brutal Truth: {rawData.apathy.parsed.brutalTruth}"</p>
+                         </div>
+                      </div>
+                      <div className="space-y-4">
+                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Psychological Friction Points</h4>
+                          {rawData.apathy.parsed.psychologicalFriction?.map((f: any, i: number) => (
+                             <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-white/30 transition-all">
+                                <div className="flex justify-between items-start mb-2">
+                                   <span className="text-xs font-black text-white uppercase">{f.point}</span>
+                                   <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${f.severity === 'High' ? 'bg-red-500/20 text-red-500' : 'bg-orange-500/20 text-orange-500'}`}>
+                                      {f.severity} FRICTION
+                                   </span>
+                                </div>
+                                <p className="text-[11px] text-gray-400 italic">"{f.reason}"</p>
+                             </div>
+                          ))}
+                       </div>
+                   </div>
+                </section>
+              )}
+
+             {/* VIII. Execution Dossier */}
+              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.4s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">III</span>
+                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VII</span>
                     EXECUTION DOSSIER
                  </h3>
                  <div className="grid lg:grid-cols-2 gap-8">
@@ -1118,55 +1091,10 @@ export default function Home() {
                  </div>
               </section>
 
-              {/* IX. IP & Regulatory Fortress */}
-              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.45s' }}>
-                <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 text-lg">IX</span>
-                   IP & REGULATORY FORTRESS
-                </h3>
-                {rawData.p9?.parsed && (
-                  <div className="grid lg:grid-cols-2 gap-8">
-                    <div className="glass-card">
-                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Regulatory Friction</h4>
-                       <div className="flex items-center gap-4 mb-6">
-                         <div className="text-5xl font-black text-white">{rawData.p9.parsed.regulatoryFriction}/10</div>
-                         <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
-                           <div className={`h-full transition-all ${rawData.p9.parsed.regulatoryFriction >= 7 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${rawData.p9.parsed.regulatoryFriction * 10}%` }} />
-                         </div>
-                       </div>
-                       <p className="text-sm text-gray-400 italic mb-6">"{rawData.p9.parsed.complianceMoatStrategy}"</p>
-                       <div className="space-y-3">
-                         {rawData.p9.parsed.requiredCompliances?.map((c: any, i: number) => (
-                           <div key={i} className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
-                             <div className="flex flex-col">
-                               <span className="text-xs font-bold text-white">{c.framework}</span>
-                               <span className="text-[9px] text-gray-500 uppercase">{c.timeline}</span>
-                             </div>
-                             <span className={`text-[9px] font-black px-2 py-1 rounded ${c.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>{c.priority}</span>
-                           </div>
-                         ))}
-                       </div>
-                    </div>
-                    <div className="glass-card">
-                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">IP Risk & Landmines</h4>
-                       <div className="text-2xl font-black text-purple-400 mb-4">IP Defense Score: {rawData.p9.parsed.ipScore}%</div>
-                       <div className="grid gap-3">
-                         {rawData.p9.parsed.keyLandmines?.map((l: any, i: number) => (
-                           <div key={i} className={`p-4 rounded-xl border-l-4 ${l.severity === 'High' ? 'border-red-500 bg-red-500/5' : 'border-yellow-500 bg-yellow-500/5'}`}>
-                             <p className="text-[10px] font-black uppercase text-gray-500 mb-1">{l.type}</p>
-                             <p className="text-xs text-gray-200">{l.risk}</p>
-                           </div>
-                         ))}
-                       </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* IV. Unit Economics & Exit Engine */}
-              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.6s' }}>
+              {/* IX. Unit Economics & Exit Engine */}
+              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.6s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IV</span>
+                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IX</span>
                     UNIT ECONOMICS & EXIT ENGINE
                  </h3>
                  <div className="grid lg:grid-cols-3 gap-8">
@@ -1217,12 +1145,56 @@ export default function Home() {
                  </div>
               </section>
 
+              {/* X. IP & Regulatory Fortress */}
+              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.8s' }}>
+                <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
+                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 text-lg">X</span>
+                   IP & REGULATORY FORTRESS
+                </h3>
+                {rawData.p9?.parsed && (
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    <div className="glass-card">
+                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Regulatory Friction</h4>
+                       <div className="flex items-center gap-4 mb-6">
+                         <div className="text-5xl font-black text-white">{rawData.p9.parsed.regulatoryFriction}/10</div>
+                         <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
+                           <div className={`h-full transition-all ${rawData.p9.parsed.regulatoryFriction >= 7 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${rawData.p9.parsed.regulatoryFriction * 10}%` }} />
+                         </div>
+                       </div>
+                       <p className="text-sm text-gray-400 italic mb-6">"{rawData.p9.parsed.complianceMoatStrategy}"</p>
+                       <div className="space-y-3">
+                         {rawData.p9.parsed.requiredCompliances?.map((c: any, i: number) => (
+                           <div key={i} className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
+                             <div className="flex flex-col">
+                               <span className="text-xs font-bold text-white">{c.framework}</span>
+                               <span className="text-[9px] text-gray-500 uppercase">{c.timeline}</span>
+                             </div>
+                             <span className={`text-[9px] font-black px-2 py-1 rounded ${c.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>{c.priority}</span>
+                           </div>
+                         ))}
+                       </div>
+                    </div>
+                    <div className="glass-card">
+                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">IP Risk & Landmines</h4>
+                       <div className="text-2xl font-black text-purple-400 mb-4">IP Defense Score: {rawData.p9.parsed.ipScore}%</div>
+                       <div className="grid gap-3">
+                         {rawData.p9.parsed.keyLandmines?.map((l: any, i: number) => (
+                           <div key={i} className={`p-4 rounded-xl border-l-4 ${l.severity === 'High' ? 'border-red-500 bg-red-500/5' : 'border-yellow-500 bg-yellow-500/5'}`}>
+                             <p className="text-[10px] font-black uppercase text-gray-500 mb-1">{l.type}</p>
+                             <p className="text-xs text-gray-200">{l.risk}</p>
+                           </div>
+                         ))}
+                       </div>
+                    </div>
+                  </div>
+                )}
+              </section>
 
-              {/* V. Founder Capability Gap Interview */}
+              {/* XI. Founder Capability Gap Interview */}
               {rawData.p_fit?.parsed && (
-                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.9s' }}>
+                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.0s' }}>
                     <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
-                       <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">V</span>
+                       <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">XI</span>
                        FOUNDER CAPABILITY GAP INTERVIEW
                     </h3>
                     <div className="grid lg:grid-cols-3 gap-6">
@@ -1264,11 +1236,11 @@ export default function Home() {
                   </section>
                )}
 
-             {/* VI. Pre-Mortem: Socratic Death Simulation */}
+             {/* XII. Pre-Mortem: Socratic Death Simulation */}
              {rawData.preMortem?.parsed && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.0s' }}>
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.2s' }}>
                    <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
-                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">IV</span>
+                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">XII</span>
                       SOCRATIC DEATH SIMULATION
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
@@ -1318,11 +1290,11 @@ export default function Home() {
                 </section>
              )}
 
-             {/* VII. Regulatory Capability Gap (IQ) */}
+             {/* XIII. Regulatory IQ & Capability Gap */}
              {rawData.p9?.parsed && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.2s' }}>
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.4s' }}>
                    <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
-                      <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">V</span>
+                      <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">XIII</span>
                       REGULATORY IQ & CAPABILITY GAP
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
@@ -1362,12 +1334,11 @@ export default function Home() {
                 </section>
              )}
 
-
-             {/* VIII. Competitive Retaliation Simulation */}
+             {/* XIV. Competitive Retaliation Simulation */}
              {rawData.competitiveResponse?.parsed && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.4s' }}>
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.6s' }}>
                    <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
-                      <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">VI</span>
+                      <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">XIV</span>
                       COMPETITIVE RETALIATION SIMULATION
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
@@ -1388,24 +1359,22 @@ export default function Home() {
                       </div>
                       <div className="space-y-6">
                          <div className="glass-card !bg-orange-500/5 border-orange-500/20">
-                            <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-6">Silent Killers & Poison Pills</h4>
+                            <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-6 underline decoration-orange-500/20">Silent Killer & Unscalable Moat</h4>
                             <div className="space-y-4">
-                               {rawData.competitiveResponse.parsed.silentKillers?.map((k: string, i: number) => (
-                                  <div key={i} className="flex gap-3 items-start p-3 bg-black/20 rounded-lg border border-orange-500/10">
-                                     <span className="text-orange-500 mt-1">💀</span>
-                                     <p className="text-xs text-gray-300 italic">"{k}"</p>
-                                  </div>
-                               ))}
-                               {rawData.competitiveResponse.parsed.poisonPills?.map((p: string, i: number) => (
-                                  <div key={i} className="flex gap-3 items-start p-3 bg-red-500/5 rounded-lg border border-red-500/10">
-                                     <span className="text-red-500 mt-1">💊</span>
-                                     <p className="text-xs text-gray-400 italic">"{p}"</p>
-                                  </div>
-                               ))}
+                               <div className="p-4 bg-black/40 rounded-xl border border-orange-500/10">
+                                  <span className="text-[9px] text-orange-500 font-black uppercase block mb-2">The Silent Killer</span>
+                                  <p className="text-md font-black text-white mb-2">{rawData.competitiveResponse.parsed.silentKiller?.name}</p>
+                                  <p className="text-xs text-gray-400 italic">"{rawData.competitiveResponse.parsed.silentKiller?.pivotLogic}"</p>
+                                  <span className="text-[8px] font-black uppercase text-red-500 mt-2 block">Threat: {rawData.competitiveResponse.parsed.silentKiller?.threatLevel}</span>
+                               </div>
+                               <div className="p-4 bg-purple-500/5 rounded-xl border border-purple-500/20">
+                                  <span className="text-[9px] text-purple-400 font-black uppercase block mb-1">Unscalable Advantage</span>
+                                  <p className="text-xs text-gray-200 font-bold italic">"{rawData.competitiveResponse.parsed.unscalableAdvantage}"</p>
+                               </div>
                             </div>
                          </div>
                          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                            <span className="text-[9px] text-green-400 font-black uppercase tracking-widest block mb-2">The Competitive Moat</span>
+                            <span className="text-[9px] text-green-400 font-black uppercase tracking-widest block mb-2">Defensive Posture</span>
                             <p className="text-sm text-gray-300 font-bold">"{rawData.competitiveResponse.parsed.competitiveMoat}"</p>
                          </div>
                       </div>
@@ -1413,11 +1382,11 @@ export default function Home() {
                 </section>
              )}
 
-             {/* IX. Adversarial Debate (Ground Truth) */}
+             {/* XV. Adversarial Council: Ground Truth */}
              {rawData.debate?.parsed && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.6s' }}>
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.8s' }}>
                    <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
-                      <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">VII</span>
+                      <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">XV</span>
                       ADVERSARIAL COUNCIL: GROUND TRUTH
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
@@ -1445,11 +1414,11 @@ export default function Home() {
                 </section>
              )}
 
-             {/* X. Execution Master Roadmap */}
+             {/* XVI. The Industrial Roadmap (BLITZ) */}
              {result.roadmap && (
-                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.8s' }}>
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '3.0s' }}>
                    <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
-                      <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 font-mono">X</span>
+                      <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 font-mono">XVI</span>
                       THE INDUSTRIAL ROADMAP (BLITZ)
                    </h3>
                    <div className="grid lg:grid-cols-4 gap-4">
@@ -1473,13 +1442,13 @@ export default function Home() {
                 </section>
              )}
 
-             {/* XI. FINAL CONFLICT RESOLUTION & REASONING */}
+             {/* XVII. FINAL CONFLICT RESOLUTION & REASONING */}
              <section className="glass-card bg-white/5 border-white/10 p-12 text-center animate-slide-up" style={{ animationDelay: '2s' }}>
                 <span className="text-[10px] text-gray-500 uppercase font-black block mb-4">Board Perspective</span>
                 <p className="text-2xl font-bold text-gray-200 leading-relaxed max-w-4xl mx-auto italic">"{result.reasoning}"</p>
              </section>
 
-             {/* XII. Interactive Stress Test */}
+             {/* XVIII. Interactive Stress Test */}
              <section className="glass-card border-purple-500/50 bg-purple-500/5 p-12 animate-slide-up" style={{ animationDelay: '2.2s' }}>
                 <div className="max-w-3xl mx-auto text-center">
                    <h3 className="text-3xl font-black text-white mb-4">INTERACTIVE STRESS TEST</h3>

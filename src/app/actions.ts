@@ -25,6 +25,7 @@ import { regulatoryAnalysis } from '@/lib/prompts/regulatoryAnalysis';
 import { financialAnalysis } from '@/lib/prompts/financialAnalysis';
 import { runDebate } from '@/lib/prompts/debateEngine';
 import { competitiveResponse } from '@/lib/prompts/competitiveResponse';
+import { apathySimulator } from '@/lib/prompts/apathySimulator';
 
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
@@ -176,6 +177,12 @@ export async function runCompetitiveResponse(idea: any, researchSummary: string)
   return { raw, parsed: safeJsonParse(raw) };
 }
 
+export async function runApathySimulation(idea: any, researchSummary: string) {
+  const ideaStr = JSON.stringify(idea);
+  const raw = await apathySimulator(ideaStr, researchSummary);
+  return { raw, parsed: safeJsonParse(raw) };
+}
+
 // Refactored finalizeAudit — No more score-based branching
 export async function finalizeAudit(idea: any, answers: any, simResponse: any, context: any, collectedEvidence: any) {
   const stageTag = idea.stage ? `\nSTARTUP STAGE: ${idea.stage}` : '';
@@ -185,7 +192,8 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
     + "\nINPUTS: " + JSON.stringify(answers) 
     + "\nSIMULATION: " + JSON.stringify(simResponse)
     + "\nDEBATE: " + JSON.stringify(context.debate?.parsed)
-    + "\nCOMPETITIVE RESPONSE: " + JSON.stringify(context.competitiveResponse?.parsed);
+    + "\nCOMPETITIVE RESPONSE: " + JSON.stringify(context.competitiveResponse?.parsed)
+    + "\nAPATHY SIMULATION: " + JSON.stringify(context.apathy?.parsed);
 
   const raw = await finalScoring(inputStr, JSON.stringify(context));
   const parsed = safeJsonParse(raw);
@@ -193,7 +201,7 @@ export async function finalizeAudit(idea: any, answers: any, simResponse: any, c
   let extraData: any = {};
 
   const [projectionsRaw, blueprintRaw, roadmapRaw, pivotRaw] = await Promise.all([
-    generateProjections(JSON.stringify(idea), JSON.stringify(context), 50),
+    generateProjections(JSON.stringify(idea), JSON.stringify(context), 50), // Now 6-month in prompt
     generateBlueprint(JSON.stringify(idea), JSON.stringify(simResponse)),
     generateRoadmap(JSON.stringify(idea), JSON.stringify({ verdict: parsed.coreBet, vulnerabilities: parsed.vulnerabilityScan })),
     pivotEngine(JSON.stringify(idea), JSON.stringify(simResponse))
