@@ -85,9 +85,10 @@ export async function runInputInterrogation(idea: any) {
 
 export async function runSyntheticResearch(idea: any) {
   const queries = [
-    `${idea.industry} ${idea.problem} reddit`,
-    `${idea.industry} ${idea.problem} site:g2.com reviews`,
-    `${idea.name} ${idea.industry} indiehackers`
+    `${idea.industry} ${idea.problem} reddit self-promotion rules`,
+    `${idea.industry} average google ads CPC ${new Date().getFullYear()}`,
+    `${idea.industry} ${idea.problem} failed startups post-mortem`,
+    `${idea.industry} ${idea.problem} site:g2.com reviews`
   ];
   const researchResults = await (require('@/lib/tavily').searchSyntheticPrimary)(queries);
   const rawResearch = JSON.stringify(researchResults.results);

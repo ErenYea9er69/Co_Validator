@@ -812,8 +812,49 @@ export default function Home() {
                       </div>
 
                       <div className="space-y-4">
+                        {/* Channel Squeeze */}
+                        {rawData.synthetic.parsed.channelSqueeze && (
+                          <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl relative overflow-hidden">
+                             <div className="flex justify-between items-start mb-4">
+                                <span className="text-[10px] text-red-400 font-black uppercase tracking-widest">Channel Squeeze: {rawData.synthetic.parsed.channelSqueeze.channel}</span>
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${rawData.synthetic.parsed.channelSqueeze.mathCheck === 'Fatal' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}>
+                                   {rawData.synthetic.parsed.channelSqueeze.mathCheck} MATH
+                                </span>
+                             </div>
+                             <p className="text-xs text-gray-300 font-bold italic mb-4">"{rawData.synthetic.parsed.channelSqueeze.logic}"</p>
+                             <div className="flex flex-wrap gap-2">
+                                {rawData.synthetic.parsed.channelSqueeze.redFlags?.map((f: string, i: number) => (
+                                   <span key={i} className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/10">⚠ {f}</span>
+                                ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {/* Tarpit Analysis */}
+                        {rawData.synthetic.parsed.tarpitAnalysis && (
+                          <div className="p-6 bg-purple-500/10 border border-purple-500/20 rounded-2xl">
+                             <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4 flex justify-between">
+                                Graveyard Cross-Reference
+                                <span className={`text-[8px] px-2 py-0.5 rounded ${rawData.synthetic.parsed.tarpitAnalysis.verdict === 'Tarpit' ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                   {rawData.synthetic.parsed.tarpitAnalysis.verdict}
+                                </span>
+                             </h4>
+                             <div className="space-y-3 mb-4">
+                                {rawData.synthetic.parsed.tarpitAnalysis.deadAncestors?.map((a: any, i: number) => (
+                                   <div key={i} className="p-2 bg-black/40 rounded-lg border border-white/5">
+                                      <p className="text-[10px] text-gray-300 font-bold">{a.name} — {a.failureReason}</p>
+                                      <p className="text-[9px] text-gray-500 italic mt-1">{a.lesson}</p>
+                                   </div>
+                                ))}
+                             </div>
+                             <p className="text-xs text-purple-200 leading-tight border-t border-purple-500/20 pt-3 italic">
+                               <span className="font-black">THE TRAP:</span> {rawData.synthetic.parsed.tarpitAnalysis.trapDescription}
+                             </p>
+                          </div>
+                        )}
+
                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Simulated Discovery Interviews</h4>
-                        {rawData.synthetic.parsed.interviewTranscripts?.slice(0, 2).map((t: any, i: number) => (
+                        {rawData.synthetic.parsed.interviewTranscripts?.slice(0, 1).map((t: any, i: number) => (
                           <div key={i} className="p-6 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-2 opacity-5">
                               <span className="text-4xl font-black">💬</span>
@@ -991,18 +1032,36 @@ export default function Home() {
                           <span className="text-2xl font-black text-white font-mono tracking-tighter">${rawData.p10.parsed.survivalSkeleton?.minTargetACV}</span>
                        </div>
                    </div>
-                   <div className="glass-card !bg-green-500/5 border-green-500/20">
-                      <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Breakeven Conditions</h4>
-                      <p className="text-lg text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.p10.parsed.breakevenConditions}"</p>
-                      <div className="grid lg:grid-cols-3 gap-6">
-                        {rawData.p10.parsed.stressTests?.map((test: any, i: number) => (
-                           <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
-                              <span className="text-[10px] text-orange-400 font-black uppercase block mb-1">Stress: {test.scenario}</span>
-                              <p className="text-xs text-gray-400 leading-tight">{test.impact}</p>
-                           </div>
-                        ))}
-                      </div>
-                   </div>
+                   <div className="grid lg:grid-cols-2 gap-4">
+                       <div className="glass-card !bg-red-500/5 border-red-500/30 relative">
+                          <div className="absolute top-4 right-4 text-[8px] font-black text-red-500 uppercase tracking-widest">MANDATORY DEATH CLOCK</div>
+                          <h4 className="text-xs font-black text-red-400 uppercase tracking-widest mb-6">THE BURN RATE GUILLOTINE</h4>
+                          <div className="flex items-center gap-6 mb-6">
+                             <div className="text-6xl font-black text-white">{rawData.p10.parsed.deathGuillotine?.monthsToZero}</div>
+                             <div className="flex flex-col">
+                                <span className="text-xl font-black text-red-500 uppercase tracking-tighter">Months to Zero</span>
+                                <span className="text-xs text-gray-500 font-mono italic">Cash-out: {rawData.p10.parsed.deathGuillotine?.cashOutDate}</span>
+                             </div>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-normal mb-4 italic">"{rawData.p10.parsed.deathGuillotine?.burnBreakdown}"</p>
+                          <div className="p-3 bg-red-500/20 rounded-xl border border-red-500/20">
+                             <span className="text-[9px] text-red-400 font-black uppercase block mb-1">Fatal Constraint</span>
+                             <p className="text-sm font-bold text-white">{rawData.p10.parsed.deathGuillotine?.fatalConstraint}</p>
+                          </div>
+                       </div>
+                       <div className="glass-card !bg-green-500/5 border-green-500/20">
+                          <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Breakeven Conditions</h4>
+                          <p className="text-sm text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.p10.parsed.breakevenConditions}"</p>
+                          <div className="grid gap-4">
+                            {rawData.p10.parsed.stressTests?.slice(0, 2).map((test: any, i: number) => (
+                               <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                  <span className="text-[10px] text-orange-400 font-black uppercase block mb-1">Stress: {test.scenario}</span>
+                                  <p className="text-xs text-gray-400 leading-tight">{test.impact}</p>
+                               </div>
+                            ))}
+                          </div>
+                       </div>
+                    </div>
                 </section>
              )}
 
@@ -1026,33 +1085,56 @@ export default function Home() {
                       <div className="p-8 bg-white/5 border border-white/10 rounded-3xl relative overflow-hidden">
                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">The Indifference Argument</h4>
                          <p className="text-xl text-white font-bold italic leading-relaxed mb-6">"{rawData.apathy.parsed.indifferenceArgument}"</p>
-                         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                            <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-2 font-mono">Switching Cost: {rawData.apathy.parsed.switchingCost}</span>
-                            <p className="text-xs text-gray-300 font-bold italic">"Brutal Truth: {rawData.apathy.parsed.brutalTruth}"</p>
-                         </div>
-                      </div>
-                      <div className="space-y-4">
-                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Psychological Friction Points</h4>
-                          {rawData.apathy.parsed.psychologicalFriction?.map((f: any, i: number) => (
-                             <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-white/30 transition-all">
-                                <div className="flex justify-between items-start mb-2">
-                                   <span className="text-xs font-black text-white uppercase">{f.point}</span>
-                                   <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${f.severity === 'High' ? 'bg-red-500/20 text-red-500' : 'bg-orange-500/20 text-orange-500'}`}>
-                                      {f.severity} FRICTION
-                                   </span>
+                          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl mb-8">
+                             <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-2 font-mono">Switching Cost: {rawData.apathy.parsed.switchingCost}</span>
+                             <p className="text-xs text-gray-300 font-bold italic">"Brutal Truth: {rawData.apathy.parsed.brutalTruth}"</p>
+                          </div>
+
+                          <div className="space-y-4">
+                             <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Psychological Friction Points</h4>
+                             {rawData.apathy.parsed.psychologicalFriction?.map((f: any, i: number) => (
+                                <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-white/30 transition-all">
+                                   <div className="flex justify-between items-start mb-2">
+                                      <span className="text-xs font-black text-white uppercase">{f.point}</span>
+                                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${f.severity === 'High' ? 'bg-red-500/20 text-red-500' : 'bg-orange-500/20 text-orange-500'}`}>
+                                         {f.severity} FRICTION
+                                      </span>
+                                   </div>
+                                   <p className="text-[11px] text-gray-400 italic">"{f.reason}"</p>
                                 </div>
-                                <p className="text-[11px] text-gray-400 italic">"{f.reason}"</p>
-                             </div>
-                          ))}
+                             ))}
+                          </div>
                        </div>
-                   </div>
+
+                       <div className="glass-card !bg-red-500/5 border-red-500/40 relative">
+                          <div className="absolute top-4 right-4 text-[8px] font-black text-red-500 uppercase tracking-widest">MANDATORY EMPIRICAL PROOF</div>
+                          <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">ACTION-BASED FRICTION TEST</h4>
+                          <div className="p-6 bg-black/40 border border-white/5 rounded-2xl mb-6">
+                             <span className="text-[9px] text-gray-500 uppercase block mb-2">The Value Hook</span>
+                             <p className="text-lg text-white font-black italic leading-tight animate-pulse">"{rawData.apathy.parsed.empiricalTest?.proposition}"</p>
+                          </div>
+                          <div className="space-y-4">
+                             <div className="flex gap-4 items-center">
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-center flex-1">
+                                   <span className="text-[9px] text-gray-500 uppercase block mb-1">Target Action</span>
+                                   <span className="text-sm font-black text-red-500">{rawData.apathy.parsed.empiricalTest?.threshold}</span>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-center flex-1">
+                                   <span className="text-[9px] text-gray-500 uppercase block mb-1">Time Limit</span>
+                                   <span className="text-sm font-black text-red-500">48 HOURS</span>
+                                </div>
+                             </div>
+                             <p className="text-[10px] text-gray-400 text-center italic">"Algorithm analysis is a guess. This test is the only truth."</p>
+                          </div>
+                       </div>
+                    </div>
                 </section>
               )}
 
              {/* VIII. Execution Dossier */}
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.4s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
-                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VII</span>
+                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VIII</span>
                     EXECUTION DOSSIER
                  </h3>
                  <div className="grid lg:grid-cols-2 gap-8">
@@ -1197,6 +1279,26 @@ export default function Home() {
                        <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">XI</span>
                        FOUNDER CAPABILITY GAP INTERVIEW
                     </h3>
+                    
+                    {/* Founder Reality Check (Gap 7) */}
+                    <div className="glass-card border-l-4 border-red-500 !bg-red-500/5 mb-8">
+                       <div className="flex justify-between items-start mb-4">
+                          <h4 className="text-xs font-black text-red-500 uppercase tracking-widest">THE FOUNDER REALITY CHECK</h4>
+                          <span className="text-[8px] bg-red-500 text-white px-2 py-0.5 rounded font-black">FATAL IF FAKED</span>
+                       </div>
+                       <p className="text-lg text-white font-black italic mb-4 leading-tight">"{rawData.p_fit.parsed.realityCheck?.question}"</p>
+                       <div className="grid lg:grid-cols-2 gap-4">
+                          <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+                             <span className="text-[9px] text-gray-500 uppercase block mb-1">Execution Bottleneck</span>
+                             <p className="text-xs text-gray-300 font-bold">{rawData.p_fit.parsed.realityCheck?.targetBottleneck}</p>
+                          </div>
+                          <div className="p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                             <span className="text-[9px] text-red-400 font-black uppercase block mb-1">Failure Signal</span>
+                             <p className="text-xs text-red-200 italic">{rawData.p_fit.parsed.realityCheck?.failureSignal}</p>
+                          </div>
+                       </div>
+                    </div>
+
                     <div className="grid lg:grid-cols-3 gap-6">
                        <div className="lg:col-span-2 space-y-4">
                           <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Authority Probe</h4>

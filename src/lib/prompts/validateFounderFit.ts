@@ -14,20 +14,22 @@ FOUNDER PROFILE:
 ${founderData}
 
 TASK:
-1. **The Capability Gap Interview**: Generate 5 highly specific questions that probe the founder's unique authority or ability to execute *this* idea (e.g., 'Have you ever sold to a Procurement Officer in the Fortune 500 before?').
-2. **Missing Skillsets**: Identify the 3 critical skills this specific founder (based on their background) is likely missing for this specific business model.
-3. **The "Unfair Advantage"**: What is the ONE thing this founder has that a competitor with $10M in funding doesn't? (e.g., 'Deep empathy for X user group', 'Access to Y dataset').
+    1. **The Founder Reality Check (Technical Probe)**: If the idea is software-based, generate a "Technical Bottleneck" question. Ask about their tech stack choice vs. a specific execution risk (e.g. 'How will you handle real-time sync for X?' or 'What is your strategy for API rate limits?'). If they give a vague "I will hire someone" answer, flag it as a fatal risk.
+    2. **Sweat Equity Assessment**: Evaluate their ability to build a "Scrappy MVP" vs. just managing a project. Corporate titles (VP, Director) are often a liability in 0-to-1 startups.
+    3. **Missing Skillsets**: Identify the 3 critical skills this specific founder is missing.
+    4. **The "Unfair Advantage"**: Identify the ONE thing they have that a $10M funded competitor doesn't.
 
-FORMAT:
-Return a JSON object:
-{
-  "capabilityGapInterview": [
-    { "question": "...", "whyItMatters": "...", "severity": "High | Med | Low" }
-  ],
-  "missingSkillsets": ["Skill A", "Skill B", "Skill C"],
-  "unfairAdvantage": "The specific localized advantage the founder has.",
-  "executionRisk": "Summary of the founder's primary execution risk profile."
-}
+    FORMAT:
+    Return a JSON object:
+    {
+      "realityCheck": { "question": "...", "targetBottleneck": "...", "failureSignal": "What a 'fake' answer looks like." },
+      "capabilityGapInterview": [
+        { "question": "...", "whyItMatters": "...", "severity": "High | Med | Low" }
+      ],
+      "missingSkillsets": ["Skill A", "Skill B", "Skill C"],
+      "unfairAdvantage": "The specific localized advantage.",
+      "executionRisk": "Summary of 'Sweat Equity' vs 'Corporate Bloat' risk profile."
+    }
 `;
 
   return await thinkDeep([

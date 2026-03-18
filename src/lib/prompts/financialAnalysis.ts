@@ -14,35 +14,38 @@ RESEARCH CONTEXT:
 ${researchSummary}
 
 TASK:
-1. **6-Month Survival Model**: Instead of predicting long-term scale, define the immediate break-even conditions.
-   - What is the MAXIMUM CAC (Customer Acquisition Cost) this business can afford before the unit economics break?
-   - What is the MINIMUM Monthly Churn required to stay alive for the first 180 days?
-   - What is the MINIMUM ACV (Annual Contract Value) required to support a sustainable sales motion?
-2. **Capital Velocity & Milestone Burn**: 
-   - Exactly how much "Burn" is required to reach the FIRST meaningful milestone (e.g. 10 paying customers, or $10k ARR)?
-   - What are the 3 most expensive operational execution risks in the next 6 months?
-3. **Exit Ecosystem Reality**: 
-   - Identify 3 potential "Strategic Acquirers" who would buy this for its team or niche tech, not just revenue.
-   - What is a rational acquisition logic for this specific segment?
+    1. **The Burn Rate Guillotine (Death Projections)**: 
+       - Calculate exactly how many months the startup has until they run out of their stated budget (CASH-OUT DATE).
+       - Assume standard industry costs if not specified: Hosting ($200/mo), API/Saas ($500/mo), Essential Marketing ($1k/mo), and Founder Survival ($3k/mo per person if non-technical and requiring external dev hire).
+    2. **6-Month Survival Model**: 
+       - What is the MAXIMUM CAC this business can afford before math breaks?
+       - What is the MINIMUM ACV required to sustain a sales motion?
+    3. **Operational Stressors**: 3 most expensive operational execution risks.
+    4. **Exit Ecosystem Reality**: Potential acquirers and their strategic logic.
 
-FORMAT:
-Return a JSON object:
-{
-  "survivalSkeleton": {
-    "maxAffordableCAC": "$X",
-    "minSurvivalChurn": "Y%",
-    "minTargetACV": "$Z",
-    "paybackLimitMonths": number,
-    "burnToFirstMilestone": "$A"
-  },
-  "operationalStressors": [
-    { "risk": "...", "impact": "High | Med", "mitigation": "..." }
-  ],
-  "exitEcosystem": [
-    { "acquirer": "...", "strategicLogic": "..." }
-  ],
-  "unitEconomicsLogic": "Summary of the 'gritty reality' of the next 6 months."
-}
+    FORMAT:
+    Return a JSON object:
+    {
+      "deathGuillotine": {
+        "monthsToZero": number,
+        "cashOutDate": "Estimated Month/Year",
+        "burnBreakdown": "Brief list of major costs.",
+        "fatalConstraint": "The specific cost that kills them fastest."
+      },
+      "survivalSkeleton": {
+        "maxAffordableCAC": "$X",
+        "minSurvivalChurn": "Y%",
+        "minTargetACV": "$Z",
+        "burnToFirstMilestone": "$A"
+      },
+      "operationalStressors": [
+        { "risk": "...", "impact": "High | Med", "mitigation": "..." }
+      ],
+      "exitEcosystem": [
+        { "acquirer": "...", "strategicLogic": "..." }
+      ],
+      "unitEconomicsLogic": "Summary of the 'gritty reality' of the next 6 months."
+    }
 `;
 
   return await thinkDeep([

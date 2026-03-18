@@ -19,20 +19,38 @@ RAW SCRAPED DATA:
 ${rawScrapedData}
 
 TASK:
-1. **Source Tiering**: Categorize the provided data into the 3 Tiers.
-2. **"Unfiltered Truths"**: Extract insights from Tier 3, but explicitly flag them as "SENTIMENT".
-3. **"Hard Counter-Evidence"**: Find any Tier 1 or Tier 2 data that contradicts the founder's assumptions.
-4. **Research Credibility Summary**: What percentage of this audit's research rests on Tier 3 vs Tiers 1/2?
+    1. **Source Tiering**: Categorize the provided data into the 3 Tiers.
+    2. **"The Channel Squeeze"**: If a distribution channel is mentioned (e.g. Reddit, Ads), analyze its terminal capacity. 
+       - Identify self-promotion bans in specific target subreddits.
+       - Compare estimated CPC for keywords against target ACV.
+    3. **"Graveyard Cross-Reference (Tarpit Analysis)"**: 
+       - Identify 2-3 defunct startups that tried to solve this exact problem.
+       - Why did they die? Is this a "missing feature" or a "tarpit idea" (too hard/unprofitable)?
+    4. **"Unfiltered Truths"**: Extract Tier 3 sentiment.
+    5. **Research Credibility Summary**: Percentage of research on Tier 3 vs Tiers 1/2.
 
-FORMAT:
-Return a JSON object:
-{
-  "researchCredibility": {
-    "tier1Count": number,
-    "tier2Count": number,
-    "tier3Count": number,
-    "summary": "e.g. 'Highly speculative; 90% forum sentiment'"
-  },
+    FORMAT:
+    Return a JSON object:
+    {
+      "channelSqueeze": {
+        "channel": "name",
+        "redFlags": ["Reason 1", "Reason 2"],
+        "mathCheck": "Fatal | Viable | Narrow",
+        "logic": "Detailed explanation of distribution exhaustion."
+      },
+      "tarpitAnalysis": {
+        "deadAncestors": [
+          { "name": "...", "failureReason": "...", "lesson": "..." }
+        ],
+        "verdict": "Gap | Tarpit",
+        "trapDescription": "The specific reason competitors didn't build this."
+      },
+      "researchCredibility": {
+        "tier1Count": number,
+        "tier2Count": number,
+        "tier3Count": number,
+        "summary": "..."
+      },
   "insights": [
     {
       "claim": "The specific market claim...",
