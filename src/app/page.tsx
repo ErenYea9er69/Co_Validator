@@ -19,7 +19,8 @@ export default function Home() {
   const [idea, setIdea] = useState({
     name: '', problem: '', solution: '', industry: '', targetAudience: '', monetization: '', competitorsInfo: '', stage: 'idea',
     founderBackground: '', budget: '', locale: 'Global',
-    whyNow: '', tractionEvidence: '', targetPricing: '', acquisitionChannel: ''
+    whyNow: '', tractionEvidence: '', targetPricing: '', acquisitionChannel: '',
+    linkedinUrls: '', coFounders: '', tractionDocs: '' // New fields
   });
 
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,16 @@ export default function Home() {
   const [stressTestLoading, setStressTestLoading] = useState(false);
   const [showVault, setShowVault] = useState(false);
   const [rawData, setRawData] = useState<any>({});
+  const [stressResults, setStressResults] = useState<any[]>([]);
+  const [isStressTesting, setIsStressTesting] = useState(false);
+
   const [failedPhases, setFailedPhases] = useState<string[]>([]);
+
+  // Phase 0: Interrogation States
+  const [interrogationSuite, setInterrogationSuite] = useState<any>(null);
+  const [interrogationActive, setInterrogationActive] = useState(false);
+  const [interrogationAnswers, setInterrogationAnswers] = useState<Record<string, string>>({});
+  const [specificityScore, setSpecificityScore] = useState<number>(0);
 
   const addLog = (msg: string) => setLogs(prev => [...prev.slice(-12), msg]);
 
@@ -48,6 +58,25 @@ export default function Home() {
       }
     } catch {}
   }, []);
+
+  const handleStressTest = async (change: string) => {
+    if (!change || isStressTesting) return;
+    setIsStressTesting(true);
+    try {
+      const summary = {
+        scores: result.scores,
+        verdict: result.verdictLabel,
+        reasoning: result.reasoning,
+        compositeScores: result.compositeScores
+      };
+      const testResult = await actions.runStressTest(JSON.stringify(idea), change, summary as any);
+      setStressResults(prev => [{ ...testResult, change, id: Date.now() }, ...prev]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsStressTesting(false);
+    }
+  };
 
   useEffect(() => {
     if (result && phase === 10) {
@@ -67,27 +96,73 @@ export default function Home() {
     return String(val);
   };
 
-  // ─── Audit orchestrator with PARALLELIZED phases + error resilience ───
-  const startAudit = async (e: React.FormEvent) => {
+  // ─── Phase 0: Input Interrogation ───
+  const startInterrogation = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true); setLogs(['Analyzing input specificity...']);
+    setPhase(0); setPhaseName('Input Interrogation');
+
+    try {
+      const response = await actions.runInputInterrogation(idea);
+      setInterrogationSuite(response.parsed);
+      setSpecificityScore(response.parsed.specificityScore);
+      
+      if (response.parsed.readyForAudit) {
+        addLog('Specificity threshold met. Proceeding to audit.');
+        await performFullAudit();
+      } else {
+        addLog('Input too thin. Interrogation required.');
+        setInterrogationActive(true);
+      }
+    } catch (err) {
+      addLog('⚠️ Interrogation failed. Falling back to default audit.');
+      await performFullAudit();
+    }
+    setLoading(false);
+  };
+
+  const handleInterrogationSubmit = async () => {
+    setLoading(true);
+    addLog('Refining idea with extracted data...');
+    
+    // Merge answers into problem/solution for better context
+    const refinedIdea = { ...idea };
+    Object.entries(interrogationAnswers).forEach(([qId, answer]) => {
+      const question = interrogationSuite.interrogationSuite.find((q: any) => q.id === qId);
+      if (question) {
+        refinedIdea.problem += `\n[${question.targetMetric}]: ${answer}`;
+      }
+    });
+
+    setIdea(refinedIdea);
+    setInterrogationActive(false);
+    await performFullAudit(refinedIdea);
+  };
+
+  // ─── Audit orchestrator with PARALLELIZED phases + error resilience ───
+  const performFullAudit = async (customIdea?: any) => {
+    const currentIdea = customIdea || idea;
     setLoading(true); setResult(null); setChallenges(null); setRawData({}); setShowFullReport(false);
     setStressTestResult(null); setFailedPhases([]); setLogs(['Initiating engines...']);
 
     const evidence: Record<string, any[]> = {};
     let p1: any = null, p2: any = null, p3: any = null, p4: any = null, p5: any = null, p6: any = null, p7: any = null, p_fit: any = null;
-    let interrogationData: any = null, preMortemData: any = null;
+    let interrogationData: any = null, preMortemData: any = null, syntheticData: any = null;
     const failed: string[] = [];
 
 
-    // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5, Fit) ═══
-    setPhase(1); setPhaseName('Parallel Scan (5 phases)'); addLog('Launching parallel research wave...');
+    // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5, Fit, Synthetic) ═══
+    setPhase(1); setPhaseName('Parallel Scan (6 phases)'); addLog('Launching parallel research wave...');
     const wave1 = await Promise.allSettled([
-      actions.runPhase1Problem(idea, "Initial Scan"),
-      actions.runPhase2Competitors(idea, idea.competitorsInfo),
-      actions.runPhase4Feasibility(idea),
-      actions.runPhase5Market(idea),
-      actions.runFounderFit(idea),
+      actions.runPhase1Problem(currentIdea, "Initial Scan"),
+      actions.runPhase2Competitors(currentIdea, currentIdea.competitorsInfo),
+      actions.runPhase4Feasibility(currentIdea),
+      actions.runPhase5Market(currentIdea),
+      actions.runFounderFit(currentIdea),
+      actions.runSyntheticResearch(currentIdea),
     ]);
+
+
 
     if (wave1[0].status === 'fulfilled') { p1 = wave1[0].value; setRawData((prev: any) => ({ ...prev, p1 })); if (p1.searchResults) evidence['problem_evidence'] = p1.searchResults; addLog('Problem reality ✓'); }
     else { failed.push('Problem Reality'); addLog('⚠️ Problem Reality failed'); }
@@ -104,6 +179,10 @@ export default function Home() {
     if (wave1[4].status === 'fulfilled') { p_fit = wave1[4].value; setRawData((prev: any) => ({ ...prev, p_fit })); addLog('Founder Fit ✓'); }
     else { failed.push('Founder-Market Fit'); addLog('⚠️ Founder Fit failed'); }
 
+    if (wave1[5].status === 'fulfilled') { syntheticData = wave1[5].value; setRawData((prev: any) => ({ ...prev, syntheticData })); if (syntheticData.searchResults) evidence['synthetic_primary_signals'] = syntheticData.searchResults; addLog('Synthetic Primary Research ✓'); }
+    else { failed.push('Synthetic Primary Research'); addLog('⚠️ Synthetic Research failed'); }
+
+
     // ═══ CIRCUIT BREAKER: Abort if 3+ Wave 1 phases failed ═══
     if (failed.length >= 3) {
       addLog('❌ CIRCUIT BREAKER: Too many phase failures. Audit data would be unreliable.');
@@ -115,32 +194,50 @@ export default function Home() {
     }
 
     // ═══ WAVE 2: Phases dependent on P2 (3, 6) in parallel ═══
-    setPhase(3); setPhaseName('Competitive Deep-Dive'); addLog('Analyzing saturation + differentiation...');
+    setPhase(3); setPhaseName('Competitive Deep-Dive + Regulatory & Financial'); addLog('Analyzing saturation, differentiation, regulatory, and financial viability...');
     const wave2 = await Promise.allSettled([
-      actions.runPhase3Competition(idea, p2?.raw || ''),
-      actions.runPhase6Differentiation(idea, p2?.raw || ''),
+      actions.runPhase3Competition(currentIdea, JSON.stringify({ p1, p2, p4, p5 })),
+      actions.runPhase6Differentiation(currentIdea, JSON.stringify({ p1, p2, p4 })),
+      actions.runPhase9Regulatory(currentIdea, JSON.stringify({ p1, p2, p4 })),
+      actions.runPhase10Financial(currentIdea, JSON.stringify({ p1, p2, p4, p5 })),
     ]);
 
-    if (wave2[0].status === 'fulfilled') { p3 = wave2[0].value; setRawData((prev: any) => ({ ...prev, p3 })); addLog('Saturation ✓'); }
-    else { failed.push('Competition Saturation'); addLog('⚠️ Saturation failed'); }
+    if (wave2[0].status === 'fulfilled') { p3 = wave2[0].value; setRawData((prev: any) => ({ ...prev, p3 })); addLog('Saturation risk ✓'); }
+    else { failed.push('Saturation Risk'); addLog('⚠️ Saturation Risk failed'); }
 
     if (wave2[1].status === 'fulfilled') { p6 = wave2[1].value; setRawData((prev: any) => ({ ...prev, p6 })); addLog('Differentiation ✓'); }
     else { failed.push('Differentiation'); addLog('⚠️ Differentiation failed'); }
 
+    if (wave2[2].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, p9: (wave2[2] as any).value })); addLog('Regulatory fortress ✓'); }
+    else { failed.push('Regulatory Fortress'); addLog('⚠️ Regulatory failed'); }
+
+    if (wave2[3].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, p10: (wave2[3] as any).value })); addLog('Financial engine ✓'); }
+    else { failed.push('Financial Engine'); addLog('⚠️ Financial failed'); }
+
+
     // ═══ WAVE 3: Intelligence (Interrogation + Pre-Mortem with REAL data) ═══
-    const phaseResearchSummary = JSON.stringify({ p1: p1?.parsed, p2: p2?.parsed, p3: p3?.parsed, p4: p4?.parsed, p5: p5?.parsed, p6: p6?.parsed, p_fit: p_fit?.parsed });
+    const phaseResearchSummary = JSON.stringify({
+      p1: p1?.parsed, p2: p2?.parsed, p3: p3?.parsed, p4: p4?.parsed, p5: p5?.parsed, p6: p6?.parsed, p_fit: p_fit?.parsed,
+      synthetic: syntheticData?.parsed,
+      regulatory: wave2[2].status === 'fulfilled' ? (wave2[2] as PromiseFulfilledResult<any>).value.parsed : null,
+      financial: wave2[3].status === 'fulfilled' ? (wave2[3] as PromiseFulfilledResult<any>).value.parsed : null
+    });
 
     setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running interrogation + survival simulation...');
     const wave3 = await Promise.allSettled([
-      actions.runInterrogation(idea, phaseResearchSummary),
-      actions.runPreMortem(idea, phaseResearchSummary),
+      actions.runInterrogation(currentIdea, phaseResearchSummary),
+      actions.runPreMortem(currentIdea, phaseResearchSummary),
+      actions.runDebateEngine(currentIdea, phaseResearchSummary),
     ]);
 
-    if (wave3[0].status === 'fulfilled') { interrogationData = wave3[0].value; addLog('Interrogation ✓'); }
+    if (wave3[0].status === 'fulfilled') { interrogationData = (wave3[0] as PromiseFulfilledResult<any>).value; addLog('Stress test readiness ✓'); }
     else { failed.push('Interrogation'); addLog('⚠️ Interrogation failed'); }
 
-    if (wave3[1].status === 'fulfilled') { preMortemData = wave3[1].value; addLog('Pre-Mortem ✓'); }
-    else { failed.push('Pre-Mortem'); addLog('⚠️ Pre-Mortem failed'); }
+    if (wave3[1].status === 'fulfilled') { preMortemData = (wave3[1] as PromiseFulfilledResult<any>).value; addLog('Simulation complete ✓'); }
+    else { failed.push('Pre-Mortem'); addLog('⚠️ Simulation failed'); }
+
+    if (wave3[2].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, debate: (wave3[2] as PromiseFulfilledResult<any>).value })); addLog('Adversarial debate complete ✓'); }
+    else { failed.push('Debate Engine'); addLog('⚠️ Debate failed'); }
 
     setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
 
@@ -229,7 +326,7 @@ export default function Home() {
         {!result && phase === -1 && !showFullReport && (
           <div className="max-w-2xl mx-auto glass-card animate-fade-in shadow-2xl shadow-purple-500/10">
             <h2 className="text-2xl font-bold mb-6 text-purple-400">Initialize Idea</h2>
-            <form onSubmit={startAudit} className="space-y-6">
+            <form onSubmit={startInterrogation} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">Startup Name</label>
@@ -281,6 +378,22 @@ export default function Home() {
                     placeholder="e.g. Senior Dev, 10yrs in Logistics" required />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">LinkedIn URL(s)</label>
+                  <input type="text" value={idea.linkedinUrls} onChange={(e) => setIdea({...idea, linkedinUrls: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all"
+                    placeholder="e.g. linkedin.com/in/..." />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Co-Founders (if any)</label>
+                  <input type="text" value={idea.coFounders} onChange={(e) => setIdea({...idea, coFounders: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all"
+                    placeholder="e.g. Solo, or names/backgrounds" />
+                </div>
+              </div>
+
 
               {/* Stage Selector */}
               <div>
@@ -350,6 +463,14 @@ export default function Home() {
                     placeholder="List evidence: # of interviews, waitlist size, or pilot results." />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2 font-bold uppercase tracking-widest text-[10px] text-purple-400">Traction Artifacts (Docs/Analytics/Revenue)</label>
+                <textarea value={idea.tractionDocs} onChange={(e) => setIdea({...idea, tractionDocs: e.target.value})}
+                  className="w-full bg-purple-500/5 border border-purple-500/20 rounded-lg p-3 h-24 focus:border-purple-500 outline-none transition-all text-xs resize-none"
+                  placeholder="Paste summaries of revenue reports, analytics exports, or customer contracts for hard verification." />
+              </div>
+
 
               {/* GTM & Marketing */}
               <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-4">
@@ -430,11 +551,62 @@ export default function Home() {
                 whyNow: 'Advancements in lightweight mobile Computer Vision models (YOLOv8) allow for real-time form correction on devices without expensive cloud GPU overhead. Recent gyms are becoming more tech-integrated, and post-COVID health awareness is at an all-time high.',
                 tractionEvidence: 'Interviewed 25 gym-goers; 18 said they would pay \$10-20/mo to avoid the \$100/hr cost of a PT. Built a landing page with 450 signups in 2 weeks.',
                 targetPricing: '\$14.99/mo subscription with 70% gross margin.',
-                acquisitionChannel: 'Vertical TikTok/Instagram influencers in the corrective-exercise niche; SEO for "home gym form check".'
+                acquisitionChannel: 'Vertical TikTok/Instagram influencers in the corrective-exercise niche; SEO for "home gym form check".',
+                linkedinUrls: 'https://linkedin.com/in/founder1',
+                coFounders: 'None (Solo)',
+                tractionDocs: 'Landing page analytics export showing 450 signups'
               })} className="w-full py-3 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-all border border-dashed border-white/10 rounded-xl hover:border-purple-500/30">
                 💡 Try Example Idea
               </button>
             </form>
+          </div>
+        )}
+
+        {/* Phase 0: Interactive Interrogation UI */}
+        {interrogationActive && !loading && (
+          <div className="max-w-4xl mx-auto glass-card animate-fade-in border-purple-500/50">
+            <div className="flex justify-between items-center mb-8 pb-4 border-b border-white/10">
+              <div>
+                <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Phase 0: Input Interrogation</h2>
+                <p className="text-gray-400 italic">The VC "Zero-Day" Cross-Examination</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-black text-gray-500 uppercase block mb-1">Specificity Score</span>
+                <span className={`text-3xl font-black ${specificityScore < 30 ? 'text-red-500' : specificityScore < 75 ? 'text-yellow-500' : 'text-green-500'}`}>{specificityScore}%</span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-8">
+              <p className="text-sm text-red-300 font-bold">FEEDB@CK:</p>
+              <p className="text-sm text-gray-300">{interrogationSuite?.feedback}</p>
+            </div>
+
+            <div className="space-y-8">
+              {interrogationSuite?.interrogationSuite?.map((q: any) => (
+                <div key={q.id} className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <label className="text-sm font-bold text-white pr-8">Q: {q.question}</label>
+                    <span className="text-[9px] font-black bg-purple-500/20 text-purple-400 px-2 py-1 rounded uppercase tracking-widest">{q.targetMetric}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 italic">{q.context}</p>
+                  <textarea 
+                    value={interrogationAnswers[q.id] || ''} 
+                    onChange={(e) => setInterrogationAnswers({...interrogationAnswers, [q.id]: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 h-20 focus:border-purple-500 outline-none transition-all text-sm resize-none"
+                    placeholder="Provide specific details, quotes, or numbers..."
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-12 flex gap-4">
+              <button onClick={() => setInterrogationActive(false)} className="px-8 py-4 font-bold rounded-xl border border-white/10 text-gray-400 hover:bg-white/5 transition-all">
+                Cancel
+              </button>
+              <button onClick={handleInterrogationSubmit} className="flex-1 py-4 font-black rounded-xl btn-premium transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+                RE-EVALUATE & PROCEED
+              </button>
+            </div>
           </div>
         )}
 
@@ -774,30 +946,105 @@ export default function Home() {
                  </div>
               </section>
 
-              {/* IV. Unit Economics */}
+              {/* IX. IP & Regulatory Fortress */}
+              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.45s' }}>
+                <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
+                   <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 text-lg">IX</span>
+                   IP & REGULATORY FORTRESS
+                </h3>
+                {rawData.p9?.parsed && (
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    <div className="glass-card">
+                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Regulatory Friction</h4>
+                       <div className="flex items-center gap-4 mb-6">
+                         <div className="text-5xl font-black text-white">{rawData.p9.parsed.regulatoryFriction}/10</div>
+                         <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
+                           <div className={`h-full transition-all ${rawData.p9.parsed.regulatoryFriction >= 7 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${rawData.p9.parsed.regulatoryFriction * 10}%` }} />
+                         </div>
+                       </div>
+                       <p className="text-sm text-gray-400 italic mb-6">"{rawData.p9.parsed.complianceMoatStrategy}"</p>
+                       <div className="space-y-3">
+                         {rawData.p9.parsed.requiredCompliances?.map((c: any, i: number) => (
+                           <div key={i} className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
+                             <div className="flex flex-col">
+                               <span className="text-xs font-bold text-white">{c.framework}</span>
+                               <span className="text-[9px] text-gray-500 uppercase">{c.timeline}</span>
+                             </div>
+                             <span className={`text-[9px] font-black px-2 py-1 rounded ${c.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>{c.priority}</span>
+                           </div>
+                         ))}
+                       </div>
+                    </div>
+                    <div className="glass-card">
+                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">IP Risk & Landmines</h4>
+                       <div className="text-2xl font-black text-purple-400 mb-4">IP Defense Score: {rawData.p9.parsed.ipScore}%</div>
+                       <div className="grid gap-3">
+                         {rawData.p9.parsed.keyLandmines?.map((l: any, i: number) => (
+                           <div key={i} className={`p-4 rounded-xl border-l-4 ${l.severity === 'High' ? 'border-red-500 bg-red-500/5' : 'border-yellow-500 bg-yellow-500/5'}`}>
+                             <p className="text-[10px] font-black uppercase text-gray-500 mb-1">{l.type}</p>
+                             <p className="text-xs text-gray-200">{l.risk}</p>
+                           </div>
+                         ))}
+                       </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* IV. Unit Economics & Exit Engine */}
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.6s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
                     <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IV</span>
-                    UNIT ECONOMICS & SCALE
+                    UNIT ECONOMICS & EXIT ENGINE
                  </h3>
-                 {rawData.p5?.parsed && (
-                   <div className="flex items-center gap-4 mb-2">
-                      <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${
-                        rawData.p5.parsed.confidenceScore >= 70 ? 'bg-green-500/20 text-green-400' :
-                        rawData.p5.parsed.confidenceScore >= 40 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
-                      }`}>{rawData.p5.parsed.verdict || 'N/A'}</span>
-                      <span className="text-xs text-gray-500 font-bold">Market Confidence: {rawData.p5.parsed.confidenceScore ?? '?'}%</span>
+                 <div className="grid lg:grid-cols-3 gap-8">
+                   <div className="lg:col-span-2 glass-card">
+                      <h4 className="text-xs font-black text-gray-500 uppercase mb-6 tracking-widest">Financial Architecture</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        {rawData.p10?.parsed?.unitEconomics && Object.entries(rawData.p10.parsed.unitEconomics).map(([key, val]) => (
+                          <div key={key} className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
+                            <span className="text-[9px] text-gray-500 uppercase block mb-1">{key.replace(/([A-Z])/g, ' $1')}</span>
+                            <span className="text-lg font-black text-purple-400">{String(val)}{key.toLowerCase().includes('score') || key.toLowerCase().includes('ratio') ? '' : key.toLowerCase().includes('margin') ? '%' : '$'}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl">
+                        <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-2">Funding Roadmap</span>
+                        <p className="text-sm text-gray-300">{rawData.p10?.parsed?.fundingRequiredToScale}</p>
+                        <p className="text-[10px] text-gray-500 mt-2 uppercase">Intensity: {rawData.p10?.parsed?.capitalIntensity}</p>
+                      </div>
                    </div>
-                 )}
-                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                     {Object.entries(result.unitEconomicsReality || {}).map(([key, val]) => (
-                       <div key={key} className="glass-card text-center !bg-white/5 border-purple-500/10 hover:border-purple-500/30 transition-all">
-                         <div className="text-[10px] text-gray-500 uppercase mb-2 font-black tracking-widest">{key}</div>
-                         <div className="text-2xl font-black text-purple-400">{String(val)}</div>
-                       </div>
-                     ))}
+                   <div className="glass-card">
+                      <h4 className="text-xs font-black text-gray-500 uppercase mb-6 tracking-widest flex justify-between items-center">
+                        <span>Exit Scenarios</span>
+                        <button 
+                          disabled={isStressTesting}
+                          onClick={() => {
+                            const change = prompt("Propose a strategic pivot or exit change (e.g. 'Partner with NVIDIA for distribution'):");
+                            if (change) handleStressTest(change);
+                          }}
+                          className={`text-[9px] px-2 py-1 rounded transition-all font-black uppercase ${isStressTesting ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600 text-white'}`}
+                        >
+                          {isStressTesting ? 'Testing...' : 'Stress Test Pivot'}
+                        </button>
+
+                      </h4>
+                      <div className="text-5xl font-black text-white mb-2">{rawData.p10?.parsed?.exitScore}/100</div>
+
+                      <span className="text-[10px] text-gray-500 uppercase block mb-6">Exit Probability Score</span>
+                      <div className="space-y-4">
+                        {rawData.p10?.parsed?.exitScenarios?.map((s: any, i: number) => (
+                          <div key={i} className="p-3 bg-white/5 rounded-lg border border-white/5 group hover:bg-white/10 transition-all">
+                            <p className="text-sm font-black text-white">{s.acquirer}</p>
+                            <p className="text-[10px] text-purple-400 font-bold mb-1">{s.estimatedMultiple}</p>
+                            <p className="text-[10px] text-gray-400 italic leading-tight">{s.logic}</p>
+                          </div>
+                        ))}
+                      </div>
+                   </div>
                  </div>
               </section>
+
 
               {/* V. Angel of Death */}
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.8s' }}>
@@ -1125,7 +1372,131 @@ export default function Home() {
                  </div>
               </section>
 
-              {/* XIV. Final Resolution */}
+              {/* XIV. Adversarial Debate Engine */}
+              {rawData.debate?.parsed && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.3s' }}>
+                   <div className="p-1 text-center bg-purple-500/20 rounded-t-2xl border-t border-x border-purple-500/30">
+                     <p className="text-[10px] font-black tracking-[1em] uppercase py-2">Multi-Agent Conflict Simulation — Consensus: {rawData.debate.parsed.debateScore}% Bullish</p>
+                   </div>
+                   <h3 className="text-3xl font-black text-white flex items-center gap-4">
+                      <span className="bg-white/10 w-10 h-10 flex items-center justify-center rounded-lg border border-white/30 text-lg">⚔</span>
+                      ADVERSARIAL DEBATE: BEAR VS BULL
+                   </h3>
+                   <div className="grid lg:grid-cols-2 gap-8">
+                      <div className="glass-card border-l-4 border-red-500 !bg-red-500/5">
+                        <div className="flex items-center gap-2 mb-6">
+                          <span className="text-2xl">🐻</span>
+                          <h4 className="text-xs font-black text-red-500 uppercase tracking-widest">The Bear Agent</h4>
+                        </div>
+                        <p className="text-sm text-gray-300 italic leading-relaxed whitespace-pre-line">{rawData.debate.parsed.bearCase}</p>
+                      </div>
+                      <div className="glass-card border-l-4 border-green-500 !bg-green-500/5">
+                        <div className="flex items-center gap-2 mb-6">
+                          <span className="text-2xl">🐂</span>
+                          <h4 className="text-xs font-black text-green-500 uppercase tracking-widest">The Bull Agent</h4>
+                        </div>
+                        <p className="text-sm text-gray-300 italic leading-relaxed whitespace-pre-line">{rawData.debate.parsed.bullCase}</p>
+                      </div>
+                   </div>
+                   <div className="glass-card !bg-purple-500/5 border-purple-500/20">
+                      <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4">Master Synthesis (Ground Truth)</h4>
+                      <p className="text-lg text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.debate.parsed.groundTruth}"</p>
+                      <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                        <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest block mb-1">The Unresolved Conflict</span>
+                        <p className="text-xs text-orange-200/70">{rawData.debate.parsed.unresolvedConflict}</p>
+                      </div>
+                   </div>
+                </section>
+              )}
+
+              {/* XVI. Stress Test Results (Re-Audit Feed) */}
+              {stressResults.length > 0 && (
+                <section className="space-y-6 animate-slide-up print:hidden">
+                  <h3 className="text-xl font-black text-orange-400 flex items-center gap-3">
+                    <span className="w-8 h-8 flex items-center justify-center bg-orange-500/10 rounded border border-orange-500/30">⚡</span>
+                    RE-AUDIT FEED (STRESS TESTS)
+                  </h3>
+                  <div className="grid gap-4">
+                    {stressResults.map((sr) => (
+                      <div key={sr.id} className="glass-card border-l-4 border-orange-500 bg-orange-500/5 p-6 animate-in slide-in-from-right duration-500">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <span className="text-[10px] text-gray-500 uppercase font-black">Proposed Change</span>
+                            <p className="text-sm font-bold text-white italic">"{sr.change}"</p>
+                          </div>
+                          <div className={`px-4 py-2 rounded-xl text-center ${sr.impact === 'Positive' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                            <span className="block text-[8px] uppercase font-black">Impact</span>
+                            <span className="text-xl font-black">{sr.delta > 0 ? '+' : ''}{sr.delta}%</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-400 leading-relaxed mb-4">{sr.logic}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {sr.dimensionShifts?.map((shift: any, idx: number) => (
+                            <div key={idx} className="p-2 bg-white/5 rounded border border-white/5">
+                              <span className="text-[8px] text-gray-500 uppercase block truncate">{shift.dimension}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-gray-500 line-through">{shift.from}</span>
+                                <span className="text-xs font-black text-purple-400">→ {shift.to}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.5s' }}>
+                <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 p-8 rounded-3xl border border-purple-500/30 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                    <span className="text-9xl font-black">🚀</span>
+                  </div>
+                  <h3 className="text-4xl font-black text-white mb-2 italic tracking-tighter uppercase">The Execution Dashboard</h3>
+                  <p className="text-purple-400 font-bold mb-8 tracking-widest text-[10px] uppercase">Roadmap to $1M ARR & Liquidity</p>
+                  
+                  <div className="grid md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-white/10 pb-2">The Next 30 Days</h4>
+                      <div className="space-y-4">
+                        {result.blueprint?.coreComponents?.slice(0, 3).map((comp: any, i: number) => (
+                          <div key={i} className="flex gap-4 items-start">
+                            <span className="w-6 h-6 rounded bg-purple-500/20 flex items-center justify-center text-[10px] font-black text-purple-400 shrink-0">0{i+1}</span>
+                            <div>
+                              <p className="text-sm font-bold text-white">{comp.name}</p>
+                              <p className="text-[10px] text-gray-500">{comp.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+                      <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Capital Velocity</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Target Launch</span>
+                          <span className="text-white font-bold">{rawData.p4?.parsed?.timeToMVP || '3 Months'}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Breakeven ARR</span>
+                          <span className="text-white font-bold">${(rawData.p10?.parsed?.unitEconomics?.targetARPU || 100) * 1000}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Scale Multiple</span>
+                          <span className="text-green-400 font-black">10x - 50x</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => window.print()}
+                        className="w-full mt-6 py-3 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                      >
+                         Download Full Dossier (PDF)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.4s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
                     <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">XI</span>

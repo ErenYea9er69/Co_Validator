@@ -11,11 +11,12 @@ MARKET RESEARCH EVIDENCE:
 ${research}
 
 TASK:
-14. **The Catalyst (Why Now?)**: Is there a specific technological, regulatory, or social shift that makes this problem solvable TODAY?
-15. **Traction Proof**: Does the user's provided evidence (interviews, waitlists, pilots) correlate with market reality or is it anecdotal?
-16. **Pain Intensity Audit**: Is this a top-3 priority for the buyer?
-17. **Signal Detection**: Identify "Green Flags" (evidence of real pain) and "Red Flags" (evidence people don't care).
-18. **Confidence Score**: Assign 0-100 based on the strength of the evidence.
+1. **The Catalyst (Why Now?)**: Is there a specific technological, regulatory, or social shift that makes this problem solvable TODAY?
+2. **Traction Verification**: Audit the provided 'tractionEvidence' and 'tractionDocs'. Are they verified facts or unproven claims?
+3. **Pain Intensity Audit**: Is this a top-3 priority for the buyer?
+4. **Signal Detection**: Identify "Green Flags" (evidence of real pain) and "Red Flags" (evidence people don't care).
+5. **Confidence Score**: Assign 0-100 based on the strength of the evidence.
+
 
 FORMAT:
 Return a JSON object:

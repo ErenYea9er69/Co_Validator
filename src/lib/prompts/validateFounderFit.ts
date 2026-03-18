@@ -15,10 +15,12 @@ FOUNDER PROFILE:
 ${founderData}
 
 EVALUATION CRITERIA:
-1. **Relevant Experience**: Does the founder have industry or technical experience that gives them an advantage?
+1. **Relevant Experience**: Does the founder have industry or technical experience that gives them an advantage? (Check background + LinkedIn context).
 2. **Resource Alignment**: Is their budget/capital sufficient for the complexity of this idea?
-3. **Execution Edge**: What "unfair advantage" does this specific person bring?
+3. **Execution Edge**: What "unfair advantage" does this specific team bring?
 4. **Geography/Locale**: Does their location help or hurt the business model?
+5. **Team Composition**: Is this a solo founder or a balanced team? (Check Co-founder backgrounds).
+
 
 Return a JSON object:
 {

@@ -19,6 +19,11 @@ import { coronerReport } from '@/lib/prompts/coronerReport';
 
 import { validateFounderFit } from '@/lib/prompts/validateFounderFit';
 import { generateRoadmap } from '@/lib/prompts/generateRoadmap';
+import { inputInterrogation } from '@/lib/prompts/inputInterrogation';
+import { syntheticResearch } from '@/lib/prompts/syntheticResearch';
+import { regulatoryAnalysis } from '@/lib/prompts/regulatoryAnalysis';
+import { financialAnalysis } from '@/lib/prompts/financialAnalysis';
+import { runDebate } from '@/lib/prompts/debateEngine';
 
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
@@ -27,19 +32,64 @@ export async function runFounderFit(idea: any) {
   const ideaStr = JSON.stringify({ name: idea.name, problem: idea.problem, solution: idea.solution, industry: idea.industry });
   const founderData = JSON.stringify({ 
     background: idea.founderBackground, 
+    linkedin: idea.linkedinUrls,
+    coFounders: idea.coFounders,
     budget: idea.budget, 
     locale: idea.locale,
     targetAudience: idea.targetAudience 
   });
+
   const raw = await validateFounderFit(ideaStr, founderData);
   return { raw, parsed: safeJsonParse(raw) };
 }
 
-// FIX: No more founderDNA stubs — interrogation uses market intelligence only
 export async function runInterrogation(idea: any, phaseContext: string) {
   const ideaStr = JSON.stringify(idea);
   const raw = await interrogateIdea(ideaStr, phaseContext, [], "None");
   return safeJsonParse(raw);
+}
+
+export async function runPhase7Roadmap(idea: any, researchSummary: string) {
+  const ideaStr = JSON.stringify(idea);
+  const raw = await generateRoadmap(ideaStr, researchSummary);
+  return { raw, parsed: safeJsonParse(raw) };
+}
+
+export async function runPhase9Regulatory(idea: any, researchSummary: string) {
+  const ideaStr = JSON.stringify(idea);
+  const raw = await regulatoryAnalysis(ideaStr, researchSummary);
+  return { raw, parsed: safeJsonParse(raw) };
+}
+
+export async function runPhase10Financial(idea: any, researchSummary: string) {
+  const ideaStr = JSON.stringify(idea);
+  const raw = await financialAnalysis(ideaStr, researchSummary);
+  return { raw, parsed: safeJsonParse(raw) };
+}
+
+export async function runDebateEngine(idea: any, researchSummary: string) {
+  const ideaStr = JSON.stringify(idea);
+  const raw = await runDebate(ideaStr, researchSummary);
+  return { raw, parsed: safeJsonParse(raw) };
+}
+
+
+export async function runInputInterrogation(idea: any) {
+  const ideaStr = JSON.stringify(idea);
+  const raw = await inputInterrogation(ideaStr);
+  return { raw, parsed: safeJsonParse(raw) };
+}
+
+export async function runSyntheticResearch(idea: any) {
+  const queries = [
+    `${idea.industry} ${idea.problem} reddit`,
+    `${idea.industry} ${idea.problem} site:g2.com reviews`,
+    `${idea.name} ${idea.industry} indiehackers`
+  ];
+  const researchResults = await (require('@/lib/tavily').searchSyntheticPrimary)(queries);
+  const rawResearch = JSON.stringify(researchResults.results);
+  const raw = await syntheticResearch(JSON.stringify(idea), rawResearch);
+  return { raw, parsed: safeJsonParse(raw), searchResults: researchResults.results };
 }
 
 // FIX: Pass Tavily answer to prompts as "Research Summary"
@@ -51,7 +101,8 @@ export async function runPhase1Problem(idea: any, initialContext: string) {
     : JSON.stringify(evidence.results);
   const contextStr = (idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '')
     + (idea.whyNow ? `\nTHE CATALYST (WHY NOW): ${idea.whyNow}` : '')
-    + (idea.tractionEvidence ? `\nTRACTION/PROOF: ${idea.tractionEvidence}` : '');
+    + (idea.tractionEvidence ? `\nTRACTION EVIDENCE: ${idea.tractionEvidence}` : '')
+    + (idea.tractionDocs ? `\nTRACTION ARTIFACTS/DOCS: ${idea.tractionDocs}` : '');
   const raw = await validateProblem(ideaStr + contextStr + "\nCONTEXT: " + initialContext, researchInput);
   return { raw, parsed: safeJsonParse(raw), searchResults: evidence.results };
 }

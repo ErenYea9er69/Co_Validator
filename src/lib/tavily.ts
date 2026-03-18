@@ -219,6 +219,25 @@ export async function searchPricing(
   });
 }
 
+export async function searchSyntheticPrimary(
+  queries: string[]
+): Promise<{ results: SearchResult[] }> {
+  const domains = ['reddit.com', 'indiehackers.com', 'g2.com', 'trustpilot.com', 'producthunt.com', 'news.ycombinator.com'];
+  const allResults: SearchResult[] = [];
+  
+  for (const query of queries.slice(0, 3)) { // Limit to 3 queries to save credits
+    const res = await search(query, {
+      searchDepth: 'advanced',
+      maxResults: 5,
+      includeDomains: domains,
+      useCache: true
+    });
+    allResults.push(...res.results);
+  }
+
+  return { results: allResults };
+}
+
 export async function lightningSearch(query: string): Promise<{ results: SearchResult[]; answer?: string }> {
   return search(query, {
     searchDepth: 'basic',
