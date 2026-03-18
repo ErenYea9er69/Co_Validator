@@ -14,9 +14,9 @@ COMPETITOR RESEARCH:
 ${competitorResearch}
 
 TASK:
-1. **The Retaliation Playbook**: Identify the 3 most likely moves an incumbent (e.g., Google, Amazon, or a segment leader) will make to kill this startup (e.g., 'Feature Parity Wipeout', 'Platform Locking', 'Predatory Pricing').
-2. **The "Silent Killer"**: Identify a non-obvious competitor (maybe in a different vertical) who has the data/distribution to pivot and crush this idea in 90 days.
-3. **The Poison Pill**: What is the "Poison Pill" this startup can implement to make retaliation too expensive or difficult for incumbents?
+1. **The Retaliation Playbook**: Identify the 3 most likely moves an incumbent (e.g., Google, Amazon, or a segment leader) will make to kill this startup. **CRITICAL**: Incumbents crush you with distribution, not just features.
+2. **The "Silent Killer"**: Identify a non-obvious competitor who has the data/distribution to pivot and crush this idea in 90 days.
+3. **The Unscalable Advantage**: Instead of a "moat" (which is rare for a startup), define the gritty, labor-intensive, hyper-niche actions the founder must take that a \$10B company legally, culturally, or economically refuses to do.
 
 FORMAT:
 Return a JSON object:
@@ -29,7 +29,7 @@ Return a JSON object:
     "pivotLogic": "How they would pivot to compete.",
     "threatLevel": "Critical | High"
   },
-  "poisonPill": "Strategic move to deter incumbents.",
+  "unscalableAdvantage": "Labour-intensive or hyper-niche strategy that scares off incumbents.",
   "competitiveMoat": "Summary of the final defensive posture."
 }
 `;

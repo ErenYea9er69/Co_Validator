@@ -15,16 +15,23 @@ ${allPhaseResults}
 
 TASK:
 1. **The Core Business Bet**: Define the singular, most important "bet" that must be true for this business to succeed.
-2. **The Cheapest Test ($500/14 Days)**: What is the absolute cheapest, fastest way to validate or invalidate the Core Bet?
+2. **The Triple-Constraint Tests ($500 each)**: Generate three distinct ways to validate the Core Bet:
+   - **Digital Test**: Landing page, paid ads, or digital waitlist.
+   - **Analog Test**: Physical hustle, 50 cold calls, door-to-door, or manual service delivery.
+   - **Wizard of Oz Test**: Faking the backend completely with manual labor to simulate the AI/automation.
 3. **The Stop Signal**: What specific data point or event means the founder should STOP and drop the idea?
-4. **Critical Assumption Stack**: Identify the 5 core assumptions this business rests on. Rank them by uncertainty and lethality. Provide a 2-week test agenda for the #1 assumption.
-5. **The verdict**: Categorize as "Greenlit for Testing", "Pivot Required", or "Indicted/Drop".
+4. **Critical Assumption Stack**: Identify the 5 core assumptions this business rests on. Rank them by uncertainty and lethality. 
+5. **The Master Verdict**: Categorize as "Greenlit for Testing", "Pivot Required", or "Indicted/Drop".
 
 FORMAT:
 Return a JSON object:
 {
   "coreBet": "The singular pivot-point...",
-  "cheapestTest": "The 24-hour / $500 test...",
+  "tests": {
+    "digital": "24-hour landing page/ad spend plan...",
+    "analog": "The 'street-level' hustle plan...",
+    "wizardOfOz": "How to fake the tech manually..."
+  },
   "stopSignal": "The metric or event that means 'Game Over'...",
   "verdict": "Greenlit for Testing | Pivot Required | Indicted",
   "criticalAssumptionStack": [

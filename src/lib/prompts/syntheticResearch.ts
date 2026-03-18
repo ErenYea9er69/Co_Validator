@@ -39,7 +39,8 @@ Return a JSON object:
       "tier": 1 | 2 | 3,
       "sourceType": "e.g. Reddit Thread | WSJ Article",
       "verificationStatus": "Confirmed | Sentiment Only | Disproven",
-      "brutalTruth": "The unfiltered reality behind the claim."
+      "brutalTruth": "The unfiltered reality behind the claim.",
+      "streetLevelTranslation": "Translate this hard data into a concrete action. (e.g. 'Competitor CAC is $500, you must prove <$50 via channel X')"
     }
   ],
   "interviewTranscripts": [
