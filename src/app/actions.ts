@@ -29,14 +29,21 @@ import { apathySimulator } from '@/lib/prompts/apathySimulator';
 
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
+function checkAuth() {
+  if (process.env.AUDIT_SECRET && process.env.NODE_ENV === 'production') {
+    return true;
+  }
+}
+
+
 
 // New: Founder-Market Fit Phase
 export async function runFounderFit(idea: any) {
   const ideaStr = `Name: ${idea.name}\nProblem: ${idea.problem}\nSolution: ${idea.solution}`;
-  const founderData = `Experience: ${idea.experience}\nCommitment: ${idea.commitment}`;
+  const founderData = `Experience: ${idea.founderBackground}\nCo-Founders: ${idea.coFounders}\nBudget: ${idea.budget}`;
   
   const result = await validateFounderFit(ideaStr, founderData);
-  return { result, usage: {} }; // Usage will be tracked globally or per call if needed
+  return { result, usage: {} }; 
 }
 
 export async function runInterrogation(idea: any, phaseContext: string) {
@@ -87,7 +94,7 @@ export async function runSyntheticResearch(idea: any) {
   const summary = searchResults.results.map(r => `[${r.title}](${r.url}): ${r.content}`).join('\n\n');
   
   const result = await syntheticResearch(JSON.stringify(idea), summary);
-  return { result: safeJsonParse(result), summary, usage: {}, tavilyCredits: queries.length * 2 };
+  return { result: safeJsonParse(result), summary, usage: {}, tavilyCredits: queries.length * 2, searchResults: searchResults.results };
 }
 
 // FIX: Pass Tavily answer to prompts as "Research Summary"

@@ -27,7 +27,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [completedSteps, setCompletedSteps] = useState(0);
   const [auditUsage, setAuditUsage] = useState({ tokens: 0, searches: 0 });
-  const totalSteps = 18;
+  const totalSteps = 17;
   const [phase, setPhase] = useState<number>(-1);
   const [phaseName, setPhaseName] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
@@ -53,12 +53,18 @@ export default function Home() {
   const addLog = (msg: string) => setLogs(prev => [...prev.slice(-12), msg]);
 
   // ─── localStorage persistence ───
+  const SCHEMA_VERSION = 4;
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('co-validator-audit');
       if (saved) {
-        const { result: r, rawData: rd, challenges: ch, idea: id } = JSON.parse(saved);
-        if (r) { setResult(r); setRawData(rd || {}); setChallenges(ch || null); setIdea(id); setPhase(10); }
+        const { result: r, rawData: rd, challenges: ch, idea: id, version } = JSON.parse(saved);
+        if (version === SCHEMA_VERSION && r) { 
+          setResult(r); setRawData(rd || {}); setChallenges(ch || null); setIdea(id); setPhase(10); 
+        } else {
+          localStorage.removeItem('co-validator-audit');
+        }
       }
     } catch {}
   }, []);
@@ -84,18 +90,39 @@ export default function Home() {
   useEffect(() => {
     if (result && phase === 10) {
       try {
-        localStorage.setItem('co-validator-audit', JSON.stringify({ result, rawData, challenges, idea }));
+        localStorage.setItem('co-validator-audit', JSON.stringify({ 
+          result, rawData, challenges, idea, version: SCHEMA_VERSION 
+        }));
       } catch {}
     }
   }, [result, rawData, challenges, idea, phase]);
 
   const clearSaved = () => { localStorage.removeItem('co-validator-audit'); };
 
-  const renderSafe = (val: any): string => {
+  const renderSafe = (val: any): any => {
     if (!val) return "";
     if (typeof val === 'string' || typeof val === 'number') return String(val);
-    if (Array.isArray(val)) return val.map(v => typeof v === 'object' ? JSON.stringify(v) : String(v)).join(', ');
-    if (typeof val === 'object') return Object.entries(val).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' | ');
+    if (Array.isArray(val)) {
+      return (
+        <ul className="list-disc list-inside space-y-1">
+          {val.map((v, i) => (
+            <li key={i}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</li>
+          ))}
+        </ul>
+      );
+    }
+    if (typeof val === 'object') {
+      return (
+        <div className="space-y-1">
+          {Object.entries(val).map(([k, v]) => (
+            <div key={k} className="flex gap-2">
+              <span className="font-bold text-gray-400 capitalize">{k}:</span>
+              <span>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
     return String(val);
   };
 
@@ -151,6 +178,7 @@ export default function Home() {
   const performFullAudit = async (customIdea?: any) => {
     const currentIdea = customIdea || idea;
     setLoading(true); setResult(null); setChallenges(null); setRawData({}); setShowFullReport(false);
+    setCompletedSteps(0);
     setStressTestResult(null); setFailedPhases([]); setLogs(['Initiating engines...']);
 
     const trackUsage = (res: any) => {
@@ -168,9 +196,16 @@ export default function Home() {
 
     // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5, Fit, Synthetic) ═══
     setPhase(1); setPhaseName('Parallel Scan (6 phases)'); addLog('Launching parallel research wave...');
+    
+    // Fix 8: Ensure interrogation answers are prominent in the prompt context
+    const interrogationVerified = currentIdea.interrogationAnswers?.length > 0 
+      ? `\nVERIFIED REFINEMENTS FROM INTERROGATION:\n${currentIdea.interrogationAnswers.map((a: any) => `- Q: ${a.question}\n  A: ${a.answer}`).join('\n')}`
+      : "";
+    const baseContext = `IDEA_INPUT: ${JSON.stringify(currentIdea)}${interrogationVerified}`;
+
     const wave1 = await Promise.allSettled([
-      actions.runPhase1Problem(currentIdea, "Initial Scan"),
-      actions.runPhase2Competitors(currentIdea, currentIdea.competitorsInfo),
+      actions.runPhase1Problem(currentIdea, `Initial Scan${interrogationVerified}`),
+      actions.runPhase2Competitors(currentIdea, `${currentIdea.competitorsInfo}${interrogationVerified}`),
       actions.runPhase4Feasibility(currentIdea),
       actions.runPhase5Market(currentIdea),
       actions.runFounderFit(currentIdea),
@@ -276,27 +311,66 @@ export default function Home() {
 
 
 
-    // ═══ Phase 7: Failure scenarios ═══
-    try {
-      setPhase(7); setPhaseName('Expert Stress Test');
-      const p7Res = await actions.runPhase7Failures(JSON.stringify(idea), preMortemData?.result, researchSummary);
-      trackUsage(p7Res);
-      p7 = p7Res;
-      setRawData((prev: any) => ({ ...prev, p7 }));
-      setCompletedSteps(prev => prev + 1);
-      addLog('Stress test ✓');
-    } catch (err) { failed.push('Expert Stress Test'); addLog('⚠️ Phase 7 failed'); }
+    // ═══ WAVE 4: Strategic Planning (Failures + Roadmap) ═══
+    let roadmapData: any = null;
+    setPhase(7); setPhaseName('Strategic Planning'); addLog('Developing failure pre-emption and industrial roadmap...');
+    const wave4 = await Promise.allSettled([
+      actions.runPhase7Failures(JSON.stringify(currentIdea), preMortemData?.result, researchSummary),
+      actions.runPhase7Roadmap(currentIdea, researchSummary)
+    ]);
+
+    wave4.forEach((w, i) => {
+      if (w.status === 'fulfilled') {
+        const res = w.value as any;
+        trackUsage(res);
+        setCompletedSteps(prev => prev + 1);
+        if (i === 0) { 
+          p7 = res; 
+          setRawData((prev: any) => ({ ...prev, p7 })); 
+          addLog('Stress test ✓'); 
+        } else { 
+          roadmapData = res.result;
+          setRawData((prev: any) => ({ ...prev, roadmap: res })); 
+          addLog('Roadmap ✓'); 
+        }
+      } else {
+        const label = i === 0 ? 'Expert Stress Test' : 'Industrial Roadmap';
+        failed.push(label);
+        addLog(`⚠️ ${label} failed`);
+      }
+    });
 
     // ═══ Final Scoring ═══
     try {
       setPhase(8); setPhaseName('Final Scoring'); addLog('Synthesizing Master Verdict...');
       const finalResult = await actions.finalizeAudit(currentIdea, researchSummary, currentIdea.interrogationAnswers);
       trackUsage(finalResult);
-      setResult(finalResult.result);
+      
+      // Merge roadmap into result (Fix 11)
+      const mergedResult = { 
+        ...finalResult.result, 
+        roadmap: roadmapData 
+      };
+      
+      setResult(mergedResult);
       setRawData((prev: any) => ({ ...prev, final: finalResult }));
       setCompletedSteps(totalSteps);
       setPhase(10);
     } catch (err) { addLog('❌ Final scoring failed.'); failed.push('Final Scoring'); }
+
+    // Check for JSON corruption in success paths
+    Object.entries(rawData).forEach(([key, val]: [string, any]) => {
+      if (val?.result?._parseError) {
+        const labels: Record<string, string> = { 
+          p1: 'Problem Reality', p2: 'Competitors', p3: 'Market Saturation', 
+          p4: 'Feasibility', p5: 'Market & Monetization', p6: 'Differentiation',
+          p_fit: 'Founder-Market Fit', syntheticData: 'Synthetic Research',
+          p9: 'Regulatory', p10: 'Financial', roadmap: 'Roadmap', final: 'Final Scoring'
+        };
+        const label = labels[key] || key;
+        if (!failed.includes(label)) failed.push(`${label} (Data Corrupted)`);
+      }
+    });
 
     setFailedPhases(failed);
     setLoading(false);
@@ -1221,24 +1295,11 @@ export default function Home() {
                         <span>Exit Scenarios</span>
                       </h4>
                       
-                      <div className="space-y-4">
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={stressTestInput}
-                            onChange={(e) => setStressTestInput(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && stressTestInput && handleStressTest(stressTestInput)}
-                            placeholder="Propose a pivot (e.g. 'B2B focus')..."
-                            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs focus:border-purple-500 outline-none transition-all"
-                          />
-                          <button 
-                            disabled={isStressTesting || !stressTestInput}
-                            onClick={() => handleStressTest(stressTestInput)}
-                            className={`px-4 py-2 rounded-lg transition-all font-black text-[10px] uppercase ${isStressTesting || !stressTestInput ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600 text-white'}`}
-                          >
-                            {isStressTesting ? 'Testing...' : 'Test'}
-                          </button>
-                        </div>
+                      <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl mb-6">
+                        <p className="text-[10px] text-purple-400 font-bold leading-tight flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+                          Stress Testing Available below in Section XVIII
+                        </p>
                       </div>
                       <div className="text-5xl font-black text-white mb-2">{rawData.p10?.result?.exitScore}/100</div>
 
@@ -1574,9 +1635,43 @@ export default function Home() {
              )}
 
              {/* XVII. FINAL CONFLICT RESOLUTION & REASONING */}
-             <section className="glass-card bg-white/5 border-white/10 p-12 text-center animate-slide-up" style={{ animationDelay: '2s' }}>
-                <span className="text-[10px] text-gray-500 uppercase font-black block mb-4">Board Perspective</span>
-                <p className="text-2xl font-bold text-gray-200 leading-relaxed max-w-4xl mx-auto italic">"{result.reasoning}"</p>
+             <section className="space-y-12 animate-slide-up" style={{ animationDelay: '2s' }}>
+                <div className="glass-card bg-white/5 border-white/10 p-12 text-center">
+                   <span className="text-[10px] text-gray-500 uppercase font-black block mb-4">Board Perspective</span>
+                   <p className="text-2xl font-bold text-gray-200 leading-relaxed max-w-4xl mx-auto italic">"{result.reasoning}"</p>
+                </div>
+
+             <div className="grid lg:grid-cols-2 gap-8 mt-12">
+                {/* Vulnerability Scan */}
+                {result.vulnerabilityScan && (
+                   <div className="glass-card border-red-500/30 bg-red-500/5">
+                      <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-6">Vulnerability Scan (Internal Red Flags)</h4>
+                      <div className="space-y-4">
+                         {result.vulnerabilityScan.map((v: string, i: number) => (
+                            <div key={i} className="flex gap-4 p-4 bg-black/20 rounded-xl border border-white/5">
+                               <span className="text-red-500 font-mono font-bold">0{i+1}</span>
+                               <p className="text-sm text-gray-300 font-bold">{v}</p>
+                            </div>
+                         ))}
+                      </div>
+                   </div>
+                )}
+
+                {/* Opportunity Scan */}
+                {result.opportunityScan && (
+                   <div className="glass-card border-green-500/30 bg-green-500/5">
+                      <h4 className="text-[10px] font-black text-green-400 uppercase tracking-widest mb-6">Opportunity Scan (Asymmetric Green Flags)</h4>
+                      <div className="space-y-4">
+                         {result.opportunityScan.map((o: string, i: number) => (
+                            <div key={i} className="flex gap-4 p-4 bg-black/20 rounded-xl border border-white/5">
+                               <span className="text-green-500 font-mono font-bold">0{i+1}</span>
+                               <p className="text-sm text-gray-200 font-bold">{o}</p>
+                            </div>
+                         ))}
+                      </div>
+                   </div>
+                )}
+             </div>
              </section>
 
              {/* XVIII. Interactive Stress Test */}

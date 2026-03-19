@@ -8,11 +8,18 @@ const apiKeys = [
   process.env.TAVILY_API_KEY_3,
 ].filter(Boolean) as string[];
 
-let currentKeyIndex = 0;
-
-function getClient() {
+function getClient(query: string = '') {
   if (apiKeys.length === 0) throw new Error('No Tavily API keys provided');
-  return tavily({ apiKey: apiKeys[currentKeyIndex] });
+  
+  // Use a simple hash of the query to pick a key deterministically
+  // This avoids race conditions on a global counter (Fix 3)
+  let hash = 0;
+  for (let i = 0; i < query.length; i++) {
+    hash = ((hash << 5) - hash) + query.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  const index = Math.abs(hash) % apiKeys.length;
+  return tavily({ apiKey: apiKeys[index] });
 }
 
 let totalCreditsUsed = 0;
@@ -97,16 +104,10 @@ async function search(
         }
       }
 
-      const res = await getClient().search(safeQuery, activeOptions);
+      const res = await getClient(safeQuery).search(safeQuery, activeOptions);
       return res;
     } catch (error: any) {
       console.error(`[Tavily] Search error for query "${safeQuery}":`, error?.message || error);
-      
-      if (apiKeys.length > 1) {
-        const prevIndex = currentKeyIndex;
-        currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
-        console.log(`[Tavily] Switching API Key: ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
-      }
       throw error;
     }
   }, 3);

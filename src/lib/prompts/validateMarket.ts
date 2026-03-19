@@ -11,10 +11,10 @@ RESEARCH:
 ${research}
 
 TASK:
-14. **Monetization Reality**: How will this actually make money? Is the user's \`targetPricing\` realistic for this audience?
-15. **Acquisition Efficiency**: Is the \`acquisitionChannel\` scalable? Compare the user's acquisition logic against industry benchmarks for CAC.
-16. **Capital Efficiency**: How much "burn" is required to reach first revenue?
-17. **Confidence Score**: 0-100.
+1. **Monetization Reality**: How will this actually make money? Is the user's \`targetPricing\` realistic for this audience?
+2. **Acquisition Efficiency**: Is the \`acquisitionChannel\` scalable? Compare the user's acquisition logic against industry benchmarks for CAC.
+3. **Capital Efficiency**: How much "burn" is required to reach first revenue?
+4. **Confidence Score**: 0-100.
 
 FORMAT:
 Return a JSON object:
