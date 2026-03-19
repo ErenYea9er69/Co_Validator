@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function competitiveResponse(
   idea: string,
@@ -34,8 +34,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a master of competitive strategy and market dynamics. You think 3 steps ahead of the competition.' },
+  const result = await think([
+    { role: 'system', content: 'You are a "Competitive Retaliation Strategist". You specialize in predicting how incumbents squash startups.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

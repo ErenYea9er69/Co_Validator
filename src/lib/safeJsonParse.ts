@@ -1,4 +1,4 @@
-export function safeJsonParse(text: string, fallback: any = {}): any {
+export function safeJsonParse(text: string, fallback: any = {}, phase?: string): any {
   if (!text) return fallback;
   try {
     let jsonStr = text.replace(/```json\s?|```/g, '').trim();
@@ -18,6 +18,8 @@ export function safeJsonParse(text: string, fallback: any = {}): any {
     }
     return JSON.parse(jsonStr);
   } catch (err) {
-    return fallback;
+    console.warn(`[safeJsonParse] Fallback triggered${phase ? ` in phase: ${phase}` : ''}. Invalid JSON:`, text.substring(0, 100) + '...');
+    return { ...fallback, _parseError: true };
   }
 }
+

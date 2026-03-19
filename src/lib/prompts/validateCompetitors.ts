@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateCompetitors(idea: string, research: string): Promise<string> {
   const prompt = `
@@ -29,8 +29,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are the \"Competitive Intelligence Officer.\" Your job is to find the hidden \"Boss Competitors\" that will crush this idea if it scales. Be thorough and identify both direct and indirect threats.' },
+  const result = await think([
+    { role: 'system', content: 'You are a "Competitor Intelligence Officer" specialized in market landscape analysis.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

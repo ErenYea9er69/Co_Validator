@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function financialAnalysis(
   idea: string,
@@ -48,9 +48,10 @@ TASK:
     }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a CFO and Venture Partner focusing on unit economics rigor and capital efficiency.' },
+  const result = await think([
+    { role: 'system', content: 'You are a "CFO Simulator" specializing in startup unit economics and burn rate risk analysis.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
-}
 
+  return result.content;
+}

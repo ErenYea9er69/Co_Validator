@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function syntheticResearch(
   idea: string,
@@ -74,9 +74,10 @@ TASK:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a Strategic Intelligence Officer specialized in distinguishing high-signal data from market noise. You value Tier 1 evidence above all else.' },
+  const result = await think([
+    { role: 'system', content: 'You are a Senior Strategic Intelligence Officer. Your task is to extract "Ground Truth" from noisy digital signals.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
-}
 
+  return result.content;
+}

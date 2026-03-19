@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function apathySimulator(
   idea: string,
@@ -39,8 +39,10 @@ TASK:
     }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a cynical, tired, and skeptical target customer. You have zero patience for new tools and a high tolerance for your current problems.' },
+  const result = await think([
+    { role: 'system', content: 'You are a Master of Apathy Simulation. You specialize in the "Default No" — the reason why customers won\'t even try a product.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

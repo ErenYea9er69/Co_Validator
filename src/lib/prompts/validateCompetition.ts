@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateCompetition(idea: string, competitorAnalysis: string): Promise<string> {
   const messages = [
@@ -61,5 +61,7 @@ Output JSON:
     },
   ];
 
-  return thinkDeep(messages, { jsonMode: true, temperature: 0.5 });
+  const result = await think(messages, { jsonMode: true, temperature: 0.5 });
+  return result.content;
 }
+

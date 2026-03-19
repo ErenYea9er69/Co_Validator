@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function generateRoadmap(
   ideaStr: string,
@@ -38,8 +38,10 @@ Format your response as a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a startup executor. You turn strategic audits into actionable plans.' },
+  const result = await think([
+    { role: 'system', content: 'You are a master of strategic roadmapping. You focus on the shortest path to market-readiness.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

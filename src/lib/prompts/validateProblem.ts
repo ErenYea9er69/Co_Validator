@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateProblem(idea: string, research: string): Promise<string> {
   const prompt = `
@@ -34,8 +34,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are the "Anthropological Skeptic." Your job is to validate if the problem being solved is actually a "Hair on Fire" pain point or just a minor inconvenience. Be brutally honest.' },
+  const result = await think([
+    { role: 'system', content: 'You are an "Anthropological Investigator" specializing in startup failure patterns. You look for the "Tarpit" — ideas that look good but have hidden, fatal flaws.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

@@ -20,10 +20,14 @@ export default function Home() {
     name: '', problem: '', solution: '', industry: '', targetAudience: '', monetization: '', competitorsInfo: '', stage: 'idea',
     founderBackground: '', budget: '', locale: 'Global',
     whyNow: '', tractionEvidence: '', targetPricing: '', acquisitionChannel: '',
-    linkedinUrls: '', coFounders: '', tractionDocs: '' // New fields
+    coFounders: '', tractionDocs: '',
+    interrogationAnswers: [] as { question: string; answer: string; targetMetric: string }[]
   });
 
   const [loading, setLoading] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState(0);
+  const [auditUsage, setAuditUsage] = useState({ tokens: 0, searches: 0 });
+  const totalSteps = 18;
   const [phase, setPhase] = useState<number>(-1);
   const [phaseName, setPhaseName] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
@@ -103,10 +107,10 @@ export default function Home() {
 
     try {
       const response = await actions.runInputInterrogation(idea);
-      setInterrogationSuite(response.parsed);
-      setSpecificityScore(response.parsed.specificityScore);
+      setInterrogationSuite(response.result);
+      setSpecificityScore(response.result.specificityScore);
       
-      if (response.parsed.readyForAudit) {
+      if (response.result.readyForAudit) {
         addLog('Specificity threshold met. Proceeding to audit.');
         await performFullAudit();
       } else {
@@ -124,14 +128,19 @@ export default function Home() {
     setLoading(true);
     addLog('Refining idea with extracted data...');
     
-    // Merge answers into problem/solution for better context
-    const refinedIdea = { ...idea };
-    Object.entries(interrogationAnswers).forEach(([qId, answer]) => {
+    const newAnswers = Object.entries(interrogationAnswers).map(([qId, answer]) => {
       const question = interrogationSuite.interrogationSuite.find((q: any) => q.id === qId);
-      if (question) {
-        refinedIdea.problem += `\n[${question.targetMetric}]: ${answer}`;
-      }
+      return {
+        question: question?.question || qId,
+        answer,
+        targetMetric: question?.targetMetric || 'General'
+      };
     });
+
+    const refinedIdea = { 
+      ...idea, 
+      interrogationAnswers: [...idea.interrogationAnswers, ...newAnswers] 
+    };
 
     setIdea(refinedIdea);
     setInterrogationActive(false);
@@ -144,11 +153,18 @@ export default function Home() {
     setLoading(true); setResult(null); setChallenges(null); setRawData({}); setShowFullReport(false);
     setStressTestResult(null); setFailedPhases([]); setLogs(['Initiating engines...']);
 
+    const trackUsage = (res: any) => {
+      if (!res) return;
+      setAuditUsage(prev => ({
+        tokens: prev.tokens + (res.usage?.total_tokens || 0),
+        searches: prev.searches + (res.tavilyCredits || 0)
+      }));
+    };
+
     const evidence: Record<string, any[]> = {};
     let p1: any = null, p2: any = null, p3: any = null, p4: any = null, p5: any = null, p6: any = null, p7: any = null, p_fit: any = null;
     let interrogationData: any = null, preMortemData: any = null, syntheticData: any = null;
     const failed: string[] = [];
-
 
     // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5, Fit, Synthetic) ═══
     setPhase(1); setPhaseName('Parallel Scan (6 phases)'); addLog('Launching parallel research wave...');
@@ -161,25 +177,26 @@ export default function Home() {
       actions.runSyntheticResearch(currentIdea),
     ]);
 
-
-
-    if (wave1[0].status === 'fulfilled') { p1 = wave1[0].value; setRawData((prev: any) => ({ ...prev, p1 })); if (p1.searchResults) evidence['problem_evidence'] = p1.searchResults; addLog('Problem reality ✓'); }
-    else { failed.push('Problem Reality'); addLog('⚠️ Problem Reality failed'); }
-
-    if (wave1[1].status === 'fulfilled') { p2 = wave1[1].value; setRawData((prev: any) => ({ ...prev, p2 })); if (p2.searchResults) evidence['competitor_scan'] = p2.searchResults; addLog('Competitors ✓'); }
-    else { failed.push('Competitor Investigation'); addLog('⚠️ Competitors failed'); }
-
-    if (wave1[2].status === 'fulfilled') { p4 = wave1[2].value; setRawData((prev: any) => ({ ...prev, p4 })); addLog('Feasibility ✓'); }
-    else { failed.push('Build Feasibility'); addLog('⚠️ Feasibility failed'); }
-
-    if (wave1[3].status === 'fulfilled') { p5 = wave1[3].value; setRawData((prev: any) => ({ ...prev, p5 })); if (p5.searchResults) evidence['pricing_research'] = p5.searchResults; addLog('Market ✓'); }
-    else { failed.push('Market & Monetization'); addLog('⚠️ Market failed'); }
-
-    if (wave1[4].status === 'fulfilled') { p_fit = wave1[4].value; setRawData((prev: any) => ({ ...prev, p_fit })); addLog('Founder Fit ✓'); }
-    else { failed.push('Founder-Market Fit'); addLog('⚠️ Founder Fit failed'); }
-
-    if (wave1[5].status === 'fulfilled') { syntheticData = wave1[5].value; setRawData((prev: any) => ({ ...prev, syntheticData })); if (syntheticData.searchResults) evidence['synthetic_primary_signals'] = syntheticData.searchResults; addLog('Synthetic Primary Research ✓'); }
-    else { failed.push('Synthetic Primary Research'); addLog('⚠️ Synthetic Research failed'); }
+    wave1.forEach((w, i) => {
+      if (w.status === 'fulfilled') {
+        const res = w.value as any;
+        trackUsage(res);
+        setCompletedSteps(prev => prev + 1);
+        
+        switch(i) {
+          case 0: p1 = res; setRawData((prev: any) => ({ ...prev, p1 })); if (res.searchResults) evidence['problem_evidence'] = res.searchResults; addLog('Problem reality ✓'); break;
+          case 1: p2 = res; setRawData((prev: any) => ({ ...prev, p2 })); if (res.searchResults) evidence['competitor_scan'] = res.searchResults; addLog('Competitors ✓'); break;
+          case 2: p4 = res; setRawData((prev: any) => ({ ...prev, p4 })); addLog('Feasibility ✓'); break;
+          case 3: p5 = res; setRawData((prev: any) => ({ ...prev, p5 })); if (res.searchResults) evidence['pricing_research'] = res.searchResults; addLog('Market ✓'); break;
+          case 4: p_fit = res; setRawData((prev: any) => ({ ...prev, p_fit })); addLog('Founder Fit ✓'); break;
+          case 5: syntheticData = res; setRawData((prev: any) => ({ ...prev, syntheticData })); if (res.searchResults) evidence['synthetic_primary_signals'] = res.searchResults; addLog('Synthetic Primary Research ✓'); break;
+        }
+      } else {
+        const labels = ['Problem Reality', 'Competitor Investigation', 'Build Feasibility', 'Market & Monetization', 'Founder-Market Fit', 'Synthetic Primary Research'];
+        failed.push(labels[i]);
+        addLog(`⚠️ ${labels[i]} failed`);
+      }
+    });
 
 
     // ═══ CIRCUIT BREAKER: Abort if 3+ Wave 1 phases failed ═══
@@ -192,102 +209,99 @@ export default function Home() {
       return;
     }
 
-    // ═══ WAVE 2: Phases dependent on P2 (3, 6) in parallel ═══
-    setPhase(3); setPhaseName('Competitive Deep-Dive + Regulatory & Financial'); addLog('Analyzing saturation, differentiation, regulatory, and financial viability...');
+    // ═══ WAVE 2: Phases dependent on P2 (3, 6, Regulatory, Financial) ═══
+    setPhase(3); setPhaseName('Deep-Dive Wave'); addLog('Analyzing saturation, differentiation, regulatory, and financials...');
     const wave2 = await Promise.allSettled([
-      actions.runPhase3Competition(currentIdea, JSON.stringify({ p1, p2, p4, p5 })),
-      actions.runPhase6Differentiation(currentIdea, JSON.stringify({ p1, p2, p4 })),
+      actions.runPhase3Competition(currentIdea, p2?.raw || ''),
+      actions.runPhase6Differentiation(currentIdea, p2?.raw || ''),
       actions.runPhase9Regulatory(currentIdea, JSON.stringify({ p1, p2, p4 })),
       actions.runPhase10Financial(currentIdea, JSON.stringify({ p1, p2, p4, p5 })),
     ]);
 
-    if (wave2[0].status === 'fulfilled') { p3 = wave2[0].value; setRawData((prev: any) => ({ ...prev, p3 })); addLog('Saturation risk ✓'); }
-    else { failed.push('Saturation Risk'); addLog('⚠️ Saturation Risk failed'); }
-
-    if (wave2[1].status === 'fulfilled') { p6 = wave2[1].value; setRawData((prev: any) => ({ ...prev, p6 })); addLog('Differentiation ✓'); }
-    else { failed.push('Differentiation'); addLog('⚠️ Differentiation failed'); }
-
-    if (wave2[2].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, p9: (wave2[2] as any).value })); addLog('Regulatory fortress ✓'); }
-    else { failed.push('Regulatory Fortress'); addLog('⚠️ Regulatory failed'); }
-
-    if (wave2[3].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, p10: (wave2[3] as any).value })); addLog('Financial engine ✓'); }
-    else { failed.push('Financial Engine'); addLog('⚠️ Financial failed'); }
-
-
-    // ═══ WAVE 3: Intelligence (Interrogation + Pre-Mortem with REAL data) ═══
-    const phaseResearchSummary = JSON.stringify({
-      p1: p1?.parsed, p2: p2?.parsed, p3: p3?.parsed, p4: p4?.parsed, p5: p5?.parsed, p6: p6?.parsed, p_fit: p_fit?.parsed,
-      synthetic: syntheticData?.parsed,
-      regulatory: wave2[2].status === 'fulfilled' ? (wave2[2] as PromiseFulfilledResult<any>).value.parsed : null,
-      financial: wave2[3].status === 'fulfilled' ? (wave2[3] as PromiseFulfilledResult<any>).value.parsed : null
+    wave2.forEach((w, i) => {
+      if (w.status === 'fulfilled') {
+        const res = w.value;
+        trackUsage(res);
+        setCompletedSteps(prev => prev + 1);
+        
+        switch(i) {
+          case 0: p3 = res; setRawData((prev: any) => ({ ...prev, p3 })); addLog('Saturation risk ✓'); break;
+          case 1: p6 = res; setRawData((prev: any) => ({ ...prev, p6 })); addLog('Differentiation ✓'); break;
+          case 2: setRawData((prev: any) => ({ ...prev, p9: res })); addLog('Regulatory fortress ✓'); break;
+          case 3: setRawData((prev: any) => ({ ...prev, p10: res })); addLog('Financial engine ✓'); break;
+        }
+      } else {
+        const labels = ['Saturation Risk', 'Differentiation', 'Regulatory Fortress', 'Financial Engine'];
+        failed.push(labels[i]);
+        addLog(`⚠️ ${labels[i]} failed`);
+      }
     });
 
-    setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running interrogation + survival simulation...');
+    // ═══ WAVE 3: Intelligence (Interrogation + Pre-Mortem + Debate + Competitive Response + Apathy) ═══
+    const researchSummary = JSON.stringify({
+      p1: p1?.result, p2: p2?.result, p3: p3?.result, p4: p4?.result, p5: p5?.result, p6: p6?.result, 
+      p_fit: p_fit?.result, synthetic: syntheticData?.result,
+    });
+
+    setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running simulations and adversarial debate...');
     const wave3 = await Promise.allSettled([
-      actions.runInterrogation(currentIdea, phaseResearchSummary),
-      actions.runPreMortem(currentIdea, phaseResearchSummary),
-      actions.runDebateEngine(currentIdea, phaseResearchSummary),
-      actions.runCompetitiveResponse(currentIdea, phaseResearchSummary),
-      actions.runApathySimulation(currentIdea, phaseResearchSummary),
+      actions.runInterrogation(currentIdea, researchSummary),
+      actions.runPreMortem(currentIdea, researchSummary),
+      actions.runDebateEngine(currentIdea, researchSummary),
+      actions.runCompetitiveResponse(currentIdea, researchSummary),
+      actions.runApathySimulation(currentIdea, researchSummary),
     ]);
 
-    if (wave3[0].status === 'fulfilled') { interrogationData = (wave3[0] as PromiseFulfilledResult<any>).value; addLog('Stress test readiness ✓'); }
-    else { failed.push('Interrogation'); addLog('⚠️ Interrogation failed'); }
-
-    if (wave3[1].status === 'fulfilled') { preMortemData = (wave3[1] as PromiseFulfilledResult<any>).value; addLog('Simulation complete ✓'); }
-    else { failed.push('Pre-Mortem'); addLog('⚠️ Simulation failed'); }
-
-    if (wave3[2].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, debate: (wave3[2] as PromiseFulfilledResult<any>).value })); addLog('Adversarial debate complete ✓'); }
-    else { failed.push('Debate Engine'); addLog('⚠️ Debate failed'); }
-
-    if (wave3[3].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, competitiveResponse: (wave3[3] as PromiseFulfilledResult<any>).value })); addLog('Competitive retaliation simulated ✓'); }
-    else { failed.push('Competitive Response'); addLog('⚠️ Competitive Response failed'); }
-
-    if (wave3[4].status === 'fulfilled') { setRawData((prev: any) => ({ ...prev, apathy: (wave3[4] as PromiseFulfilledResult<any>).value })); addLog('Customer apathy simulated ✓'); }
-    else { failed.push('Apathy Simulation'); addLog('⚠️ Apathy Simulation failed'); }
+    wave3.forEach((w, i) => {
+      if (w.status === 'fulfilled') {
+        const res = w.value;
+        trackUsage(res);
+        setCompletedSteps(prev => prev + 1);
+        
+        switch(i) {
+          case 0: interrogationData = res; addLog('Interrogation ready ✓'); break;
+          case 1: preMortemData = res; addLog('Simulation complete ✓'); break;
+          case 2: setRawData((prev: any) => ({ ...prev, debate: res })); addLog('Adversarial debate complete ✓'); break;
+          case 3: setRawData((prev: any) => ({ ...prev, competitiveResponse: res })); addLog('Competitive retaliation simulated ✓'); break;
+          case 4: setRawData((prev: any) => ({ ...prev, apathy: res })); addLog('Customer apathy simulated ✓'); break;
+        }
+      } else {
+        const labels = ['Interrogation', 'Pre-Mortem', 'Debate Engine', 'Competitive Response', 'Apathy Simulation'];
+        failed.push(labels[i]);
+        addLog(`⚠️ ${labels[i]} failed`);
+      }
+    });
 
     setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
-    const competitiveResponseDataObj = (wave3[3] as any).value;
-    const debateDataObj = (wave3[2] as any).value;
-    const apathyDataObj = (wave3[4] as any).value;
 
 
-    // ═══ Phase 7: Failure scenarios (depends on pre-mortem + all phases) ═══
+
+    // ═══ Phase 7: Failure scenarios ═══
     try {
       setPhase(7); setPhaseName('Expert Stress Test');
-      p7 = await actions.runPhase7Failures(currentIdea, preMortemData, { p1, p2, p3, p4, p5, p6, p_fit });
+      const p7Res = await actions.runPhase7Failures(JSON.stringify(idea), preMortemData?.result, researchSummary);
+      trackUsage(p7Res);
+      p7 = p7Res;
       setRawData((prev: any) => ({ ...prev, p7 }));
+      setCompletedSteps(prev => prev + 1);
       addLog('Stress test ✓');
     } catch (err) { failed.push('Expert Stress Test'); addLog('⚠️ Phase 7 failed'); }
 
     // ═══ Final Scoring ═══
     try {
       setPhase(8); setPhaseName('Final Scoring'); addLog('Synthesizing Master Verdict...');
-      const finalResult = await actions.finalizeAudit(
-        currentIdea, 
-        interrogationData, 
-        preMortemData, 
-        { 
-          p1, p2, p3, p4, p5, p6, p7, p_fit, 
-          p9: (wave2[2] as any).value,
-          p10: (wave2[3] as any).value,
-          debate: debateDataObj, 
-          competitiveResponse: competitiveResponseDataObj,
-          apathy: apathyDataObj
-        }, 
-        evidence
-      );
-
-      setResult(finalResult);
+      const finalResult = await actions.finalizeAudit(currentIdea, researchSummary, currentIdea.interrogationAnswers);
+      trackUsage(finalResult);
+      setResult(finalResult.result);
+      setRawData((prev: any) => ({ ...prev, final: finalResult }));
+      setCompletedSteps(totalSteps);
       setPhase(10);
-    } catch (err) {
-      addLog('❌ Final scoring failed.');
-      failed.push('Final Scoring');
-    }
+    } catch (err) { addLog('❌ Final scoring failed.'); failed.push('Final Scoring'); }
 
     setFailedPhases(failed);
     setLoading(false);
   };
+
 
   const downloadJSON = () => {
     const blob = new Blob([JSON.stringify({ idea, result, rawData }, null, 2)], { type: 'application/json' });
@@ -404,13 +418,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">LinkedIn URL(s)</label>
-                  <input type="text" value={idea.linkedinUrls} onChange={(e) => setIdea({...idea, linkedinUrls: e.target.value})}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 focus:border-purple-500 outline-none transition-all"
-                    placeholder="e.g. linkedin.com/in/..." />
-                </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">Co-Founders (if any)</label>
                   <input type="text" value={idea.coFounders} onChange={(e) => setIdea({...idea, coFounders: e.target.value})}
@@ -577,9 +585,9 @@ export default function Home() {
                 tractionEvidence: 'Interviewed 25 gym-goers; 18 said they would pay \$10-20/mo to avoid the \$100/hr cost of a PT. Built a landing page with 450 signups in 2 weeks.',
                 targetPricing: '\$14.99/mo subscription with 70% gross margin.',
                 acquisitionChannel: 'Vertical TikTok/Instagram influencers in the corrective-exercise niche; SEO for "home gym form check".',
-                linkedinUrls: 'https://linkedin.com/in/founder1',
                 coFounders: 'None (Solo)',
-                tractionDocs: 'Landing page analytics export showing 450 signups'
+                tractionDocs: 'Landing page analytics export showing 450 signups',
+                interrogationAnswers: []
               })} className="w-full py-3 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-all border border-dashed border-white/10 rounded-xl hover:border-purple-500/30">
                 💡 Try Example Idea
               </button>
@@ -641,7 +649,7 @@ export default function Home() {
             <div className="relative inline-block">
               <div className="w-32 h-32 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin shadow-lg shadow-purple-500/20" />
               <div className="absolute inset-0 flex items-center justify-center font-black text-2xl text-purple-400">
-                {Math.min(Math.round((phase / 10) * 100), 99)}%
+                {Math.round((completedSteps / totalSteps) * 100)}%
               </div>
             </div>
             <div>
@@ -650,6 +658,18 @@ export default function Home() {
               </h3>
               <p className="text-gray-400 italic">Executing cross-dimension validation...</p>
             </div>
+            
+            <div className="flex justify-center gap-8 text-[10px] font-black uppercase tracking-widest text-gray-500">
+              <div className="flex flex-col items-center">
+                <span className="text-purple-400 text-sm">{auditUsage.tokens.toLocaleString()}</span>
+                <span>Tokens Consumed</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-blue-400 text-sm">{auditUsage.searches}</span>
+                <span>Tavily Credits</span>
+              </div>
+            </div>
+
             <div className="glass-card text-left bg-black text-xs font-mono p-4 opacity-70 border-white/5 shadow-inner max-h-48 overflow-y-auto">
               {logs.map((log, i) => <div key={i} className={`mb-1 ${log.startsWith('⚠️') ? 'text-orange-400' : log.startsWith('❌') ? 'text-red-400' : 'text-purple-300'}`}>{`> ${log}`}</div>)}
             </div>
@@ -771,7 +791,7 @@ export default function Home() {
              </section>
 
              {/* II. Strategic Intelligence Officer (Research) */}
-             {rawData.synthetic?.parsed && (
+             {rawData.synthetic?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
                       <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
@@ -781,18 +801,18 @@ export default function Home() {
                       <div className="text-right">
                         <span className="text-[9px] text-gray-500 uppercase font-black block">Research Credibility</span>
                         <div className="flex gap-1 mt-1">
-                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier1Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-green-500" title="Tier 1"></span>)}
-                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier2Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-blue-500" title="Tier 2"></span>)}
-                          {[...Array(rawData.synthetic.parsed.researchCredibility?.tier3Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-yellow-500" title="Tier 3"></span>)}
+                          {[...Array(rawData.synthetic.result.researchCredibility?.tier1Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-green-500" title="Tier 1"></span>)}
+                          {[...Array(rawData.synthetic.result.researchCredibility?.tier2Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-blue-500" title="Tier 2"></span>)}
+                          {[...Array(rawData.synthetic.result.researchCredibility?.tier3Count || 0)].map((_, i) => <span key={i} className="w-2 h-2 rounded-full bg-yellow-500" title="Tier 3"></span>)}
                         </div>
                       </div>
                    </div>
                    
-                   <p className="text-sm text-gray-400 italic">"{rawData.synthetic.parsed.researchCredibility?.summary}"</p>
+                   <p className="text-sm text-gray-400 italic">"{rawData.synthetic.result.researchCredibility?.summary}"</p>
 
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
-                        {rawData.synthetic.parsed.insights?.map((insight: any, i: number) => (
+                        {rawData.synthetic.result.insights?.map((insight: any, i: number) => (
                            <div key={i} className="glass-card !bg-white/5 border border-white/10 group hover:border-blue-500/30 transition-all">
                               <div className="flex justify-between items-start mb-2">
                                 <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${insight.tier === 1 ? 'bg-green-500/20 text-green-400' : insight.tier === 2 ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
@@ -813,17 +833,17 @@ export default function Home() {
 
                       <div className="space-y-4">
                         {/* Channel Squeeze */}
-                        {rawData.synthetic.parsed.channelSqueeze && (
+                        {rawData.synthetic.result.channelSqueeze && (
                           <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl relative overflow-hidden">
                              <div className="flex justify-between items-start mb-4">
-                                <span className="text-[10px] text-red-400 font-black uppercase tracking-widest">Channel Squeeze: {rawData.synthetic.parsed.channelSqueeze.channel}</span>
-                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${rawData.synthetic.parsed.channelSqueeze.mathCheck === 'Fatal' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}>
-                                   {rawData.synthetic.parsed.channelSqueeze.mathCheck} MATH
+                                <span className="text-[10px] text-red-400 font-black uppercase tracking-widest">Channel Squeeze: {rawData.synthetic.result.channelSqueeze.channel}</span>
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${rawData.synthetic.result.channelSqueeze.mathCheck === 'Fatal' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}>
+                                   {rawData.synthetic.result.channelSqueeze.mathCheck} MATH
                                 </span>
                              </div>
-                             <p className="text-xs text-gray-300 font-bold italic mb-4">"{rawData.synthetic.parsed.channelSqueeze.logic}"</p>
+                             <p className="text-xs text-gray-300 font-bold italic mb-4">"{rawData.synthetic.result.channelSqueeze.logic}"</p>
                              <div className="flex flex-wrap gap-2">
-                                {rawData.synthetic.parsed.channelSqueeze.redFlags?.map((f: string, i: number) => (
+                                {rawData.synthetic.result.channelSqueeze.redFlags?.map((f: string, i: number) => (
                                    <span key={i} className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/10">⚠ {f}</span>
                                 ))}
                              </div>
@@ -831,16 +851,16 @@ export default function Home() {
                         )}
 
                         {/* Tarpit Analysis */}
-                        {rawData.synthetic.parsed.tarpitAnalysis && (
+                        {rawData.synthetic.result.tarpitAnalysis && (
                           <div className="p-6 bg-purple-500/10 border border-purple-500/20 rounded-2xl">
                              <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4 flex justify-between">
                                 Graveyard Cross-Reference
-                                <span className={`text-[8px] px-2 py-0.5 rounded ${rawData.synthetic.parsed.tarpitAnalysis.verdict === 'Tarpit' ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}`}>
-                                   {rawData.synthetic.parsed.tarpitAnalysis.verdict}
+                                <span className={`text-[8px] px-2 py-0.5 rounded ${rawData.synthetic.result.tarpitAnalysis.verdict === 'Tarpit' ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                   {rawData.synthetic.result.tarpitAnalysis.verdict}
                                 </span>
                              </h4>
                              <div className="space-y-3 mb-4">
-                                {rawData.synthetic.parsed.tarpitAnalysis.deadAncestors?.map((a: any, i: number) => (
+                                {rawData.synthetic.result.tarpitAnalysis.deadAncestors?.map((a: any, i: number) => (
                                    <div key={i} className="p-2 bg-black/40 rounded-lg border border-white/5">
                                       <p className="text-[10px] text-gray-300 font-bold">{a.name} — {a.failureReason}</p>
                                       <p className="text-[9px] text-gray-500 italic mt-1">{a.lesson}</p>
@@ -848,13 +868,13 @@ export default function Home() {
                                 ))}
                              </div>
                              <p className="text-xs text-purple-200 leading-tight border-t border-purple-500/20 pt-3 italic">
-                               <span className="font-black">THE TRAP:</span> {rawData.synthetic.parsed.tarpitAnalysis.trapDescription}
+                               <span className="font-black">THE TRAP:</span> {rawData.synthetic.result.tarpitAnalysis.trapDescription}
                              </p>
                           </div>
                         )}
 
                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Simulated Discovery Interviews</h4>
-                        {rawData.synthetic.parsed.interviewTranscripts?.slice(0, 1).map((t: any, i: number) => (
+                        {rawData.synthetic.result.interviewTranscripts?.slice(0, 1).map((t: any, i: number) => (
                           <div key={i} className="p-6 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-2 opacity-5">
                               <span className="text-4xl font-black">💬</span>
@@ -884,24 +904,24 @@ export default function Home() {
                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">III</span>
                    PROBLEM & MARKET EVIDENCE
                 </h3>
-                {rawData.p1?.parsed && (
+                {rawData.p1?.result && (
                   <div className="flex items-center gap-4 mb-2">
                      <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${
-                       rawData.p1.parsed.confidenceScore >= 70 ? 'bg-green-500/20 text-green-400' :
-                       rawData.p1.parsed.confidenceScore >= 40 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
-                     }`}>{rawData.p1.parsed.verdict || 'N/A'}</span>
-                     <span className="text-xs text-gray-500 font-bold">Confidence: {rawData.p1.parsed.confidenceScore ?? '?'}%</span>
+                       rawData.p1.result.confidenceScore >= 70 ? 'bg-green-500/20 text-green-400' :
+                       rawData.p1.result.confidenceScore >= 40 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
+                     }`}>{rawData.p1.result.verdict || 'N/A'}</span>
+                     <span className="text-xs text-gray-500 font-bold">Confidence: {rawData.p1.result.confidenceScore ?? '?'}%</span>
                   </div>
                 )}
                 <div className="grid lg:grid-cols-2 gap-8">
                    <div className="glass-card border border-white/5 space-y-4">
                       <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Anthropological Evidence</h4>
-                      <p className="text-lg text-gray-300 leading-relaxed font-medium italic print:text-gray-700">"{renderSafe(rawData.p1?.parsed?.reasoning) || "Data unavailable"}"</p>
+                      <p className="text-lg text-gray-300 leading-relaxed font-medium italic print:text-gray-700">"{renderSafe(rawData.p1?.result?.reasoning) || "Data unavailable"}"</p>
                    </div>
                    <div className="glass-card border border-white/5">
                       <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">Market Findings</h4>
                       <ul className="space-y-4">
-                         {rawData.p1?.parsed?.verifyingEvidence?.map((e: any, i: number) => (
+                         {rawData.p1?.result?.verifyingEvidence?.map((e: any, i: number) => (
                            <li key={i} className="text-sm text-gray-400 p-3 bg-white/5 rounded-lg border-l-2 border-purple-500">{renderSafe(e.fact || e)}</li>
                          )) || <li className="text-sm text-gray-500 italic">No evidence available</li>}
                       </ul>
@@ -919,7 +939,7 @@ export default function Home() {
                    <div className="lg:col-span-2 glass-card">
                       <h4 className="text-xs font-black text-gray-500 uppercase mb-6 tracking-widest">Incumbent Radar</h4>
                       <div className="grid gap-4">
-                         {rawData.p2?.parsed?.directCompetitors?.map((c: any, i: number) => (
+                         {rawData.p2?.result?.directCompetitors?.map((c: any, i: number) => (
                            <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center group hover:bg-white/10 transition-all">
                               <div>
                                  <p className="font-black text-white text-lg print:text-black">{c.name}</p>
@@ -935,17 +955,17 @@ export default function Home() {
                    </div>
                    <div className="glass-card bg-red-500/5 border-red-500/20">
                       <h4 className="text-xs font-black text-red-500 uppercase mb-6 tracking-widest">The Death Vector</h4>
-                      <p className="text-lg font-black mb-4 print:text-black">"{renderSafe(rawData.p3?.parsed?.saturationRisk) || "N/A"}"</p>
-                      <p className="text-sm text-gray-400 leading-relaxed italic">{renderSafe(rawData.p3?.parsed?.brutalTruth)}</p>
+                      <p className="text-lg font-black mb-4 print:text-black">"{renderSafe(rawData.p3?.result?.saturationRisk) || "N/A"}"</p>
+                      <p className="text-sm text-gray-400 leading-relaxed italic">{renderSafe(rawData.p3?.result?.brutalTruth)}</p>
                    </div>
                 </div>
 
                 {/* III.5. Competition Heatmap */}
-                {rawData.p3?.parsed?.competitionDimensions && (
+                {rawData.p3?.result?.competitionDimensions && (
                   <div className="glass-card p-8 bg-[#0a0a0a] border-white/5 mt-6">
                      <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Market Dynamics Heatmap</h4>
                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        {Object.entries(rawData.p3.parsed.competitionDimensions).map(([dim, scoreObj]: [string, any]) => {
+                        {Object.entries(rawData.p3.result.competitionDimensions).map(([dim, scoreObj]: [string, any]) => {
                            if (!scoreObj || typeof scoreObj !== 'object') return null;
                            const score = scoreObj.score || 0;
                            const colorClass = score >= 8 ? 'bg-red-500' : score >= 5 ? 'bg-yellow-500' : 'bg-green-500';
@@ -968,7 +988,7 @@ export default function Home() {
               </section>
 
               {/* V. Psychological Friction */}
-              {rawData.p5?.parsed && (
+              {rawData.p5?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.7s' }}>
                    <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
                       <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">V</span>
@@ -977,29 +997,29 @@ export default function Home() {
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="glass-card">
                          <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Cognitive Load</h4>
-                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.parsed.cognitiveLoad)}"</p>
+                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.result.cognitiveLoad)}"</p>
                          <div className="mt-6 flex gap-4">
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Decision Fatigue</span>
-                               <span className="font-black text-orange-400">{rawData.p5.parsed.decisionFatigue || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.p5.result.decisionFatigue || "N/A"}</span>
                             </div>
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Learning Curve</span>
-                               <span className="font-black text-orange-400">{rawData.p5.parsed.learningCurve || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.p5.result.learningCurve || "N/A"}</span>
                             </div>
                          </div>
                       </div>
                       <div className="glass-card">
                          <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Emotional Barriers</h4>
-                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.parsed.emotionalBarriers)}"</p>
+                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.result.emotionalBarriers)}"</p>
                          <div className="mt-6 flex gap-4">
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Trust Deficit</span>
-                               <span className="font-black text-orange-400">{rawData.p5.parsed.trustDeficit || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.p5.result.trustDeficit || "N/A"}</span>
                             </div>
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Fear of Change</span>
-                               <span className="font-black text-orange-400">{rawData.p5.parsed.fearOfChange || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.p5.result.fearOfChange || "N/A"}</span>
                             </div>
                          </div>
                       </div>
@@ -1008,7 +1028,7 @@ export default function Home() {
               )}
 
               {/* VI. Financial Survival Skeleton */}
-              {rawData.p10?.parsed && (
+              {rawData.p10?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.8s' }}>
                    <h3 className="text-3xl font-black text-green-500 flex items-center gap-4">
                       <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">VI</span>
@@ -1017,19 +1037,19 @@ export default function Home() {
                    <div className="grid lg:grid-cols-4 gap-4">
                        <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
                           <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Max Affordable CAC</span>
-                          <span className="text-2xl font-black text-green-400 font-mono tracking-tighter">${rawData.p10.parsed.survivalSkeleton?.maxAffordableCAC}</span>
+                          <span className="text-2xl font-black text-green-400 font-mono tracking-tighter">${rawData.p10.result.survivalSkeleton?.maxAffordableCAC}</span>
                        </div>
                        <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
                           <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Min Survival Churn (180d)</span>
-                          <span className="text-2xl font-black text-red-500 font-mono tracking-tighter">{rawData.p10.parsed.survivalSkeleton?.minSurvivalChurn}%</span>
+                          <span className="text-2xl font-black text-red-500 font-mono tracking-tighter">{rawData.p10.result.survivalSkeleton?.minSurvivalChurn}%</span>
                        </div>
                        <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
                           <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Burn to Milestone</span>
-                          <span className="text-2xl font-black text-orange-400 font-mono tracking-tighter">${rawData.p10.parsed.survivalSkeleton?.burnToFirstMilestone}</span>
+                          <span className="text-2xl font-black text-orange-400 font-mono tracking-tighter">${rawData.p10.result.survivalSkeleton?.burnToFirstMilestone}</span>
                        </div>
                        <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
                           <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">6-Mo ACV Floor</span>
-                          <span className="text-2xl font-black text-white font-mono tracking-tighter">${rawData.p10.parsed.survivalSkeleton?.minTargetACV}</span>
+                          <span className="text-2xl font-black text-white font-mono tracking-tighter">${rawData.p10.result.survivalSkeleton?.minTargetACV}</span>
                        </div>
                    </div>
                    <div className="grid lg:grid-cols-2 gap-4">
@@ -1037,23 +1057,23 @@ export default function Home() {
                           <div className="absolute top-4 right-4 text-[8px] font-black text-red-500 uppercase tracking-widest">MANDATORY DEATH CLOCK</div>
                           <h4 className="text-xs font-black text-red-400 uppercase tracking-widest mb-6">THE BURN RATE GUILLOTINE</h4>
                           <div className="flex items-center gap-6 mb-6">
-                             <div className="text-6xl font-black text-white">{rawData.p10.parsed.deathGuillotine?.monthsToZero}</div>
+                             <div className="text-6xl font-black text-white">{rawData.p10.result.deathGuillotine?.monthsToZero}</div>
                              <div className="flex flex-col">
                                 <span className="text-xl font-black text-red-500 uppercase tracking-tighter">Months to Zero</span>
-                                <span className="text-xs text-gray-500 font-mono italic">Cash-out: {rawData.p10.parsed.deathGuillotine?.cashOutDate}</span>
+                                <span className="text-xs text-gray-500 font-mono italic">Cash-out: {rawData.p10.result.deathGuillotine?.cashOutDate}</span>
                              </div>
                           </div>
-                          <p className="text-xs text-gray-400 leading-normal mb-4 italic">"{rawData.p10.parsed.deathGuillotine?.burnBreakdown}"</p>
+                          <p className="text-xs text-gray-400 leading-normal mb-4 italic">"{rawData.p10.result.deathGuillotine?.burnBreakdown}"</p>
                           <div className="p-3 bg-red-500/20 rounded-xl border border-red-500/20">
                              <span className="text-[9px] text-red-400 font-black uppercase block mb-1">Fatal Constraint</span>
-                             <p className="text-sm font-bold text-white">{rawData.p10.parsed.deathGuillotine?.fatalConstraint}</p>
+                             <p className="text-sm font-bold text-white">{rawData.p10.result.deathGuillotine?.fatalConstraint}</p>
                           </div>
                        </div>
                        <div className="glass-card !bg-green-500/5 border-green-500/20">
                           <h4 className="text-xs font-black text-green-400 uppercase tracking-widest mb-4">Breakeven Conditions</h4>
-                          <p className="text-sm text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.p10.parsed.breakevenConditions}"</p>
+                          <p className="text-sm text-gray-200 font-bold mb-6 italic leading-relaxed">"{rawData.p10.result.breakevenConditions}"</p>
                           <div className="grid gap-4">
-                            {rawData.p10.parsed.stressTests?.slice(0, 2).map((test: any, i: number) => (
+                            {rawData.p10.result.stressTests?.slice(0, 2).map((test: any, i: number) => (
                                <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">
                                   <span className="text-[10px] text-orange-400 font-black uppercase block mb-1">Stress: {test.scenario}</span>
                                   <p className="text-xs text-gray-400 leading-tight">{test.impact}</p>
@@ -1066,7 +1086,7 @@ export default function Home() {
              )}
 
              {/* VII. Apathy Simulator (USER INDIFFERENCE) */}
-              {rawData.apathy?.parsed && (
+              {rawData.apathy?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.0s' }}>
                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
                       <h3 className="text-3xl font-black text-red-400 flex items-center gap-4">
@@ -1075,8 +1095,8 @@ export default function Home() {
                       </h3>
                       <div className="text-right">
                          <span className="text-[9px] text-gray-500 uppercase font-black block">Apathy Score</span>
-                         <span className={`text-2xl font-black ${rawData.apathy.parsed.apathyScore < 4 ? 'text-red-500' : rawData.apathy.parsed.apathyScore < 7 ? 'text-orange-500' : 'text-green-500'}`}>
-                            {rawData.apathy.parsed.apathyScore}/10
+                         <span className={`text-2xl font-black ${rawData.apathy.result.apathyScore < 4 ? 'text-red-500' : rawData.apathy.result.apathyScore < 7 ? 'text-orange-500' : 'text-green-500'}`}>
+                            {rawData.apathy.result.apathyScore}/10
                          </span>
                       </div>
                    </div>
@@ -1084,15 +1104,15 @@ export default function Home() {
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="p-8 bg-white/5 border border-white/10 rounded-3xl relative overflow-hidden">
                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-6">The Indifference Argument</h4>
-                         <p className="text-xl text-white font-bold italic leading-relaxed mb-6">"{rawData.apathy.parsed.indifferenceArgument}"</p>
+                         <p className="text-xl text-white font-bold italic leading-relaxed mb-6">"{rawData.apathy.result.indifferenceArgument}"</p>
                           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl mb-8">
-                             <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-2 font-mono">Switching Cost: {rawData.apathy.parsed.switchingCost}</span>
-                             <p className="text-xs text-gray-300 font-bold italic">"Brutal Truth: {rawData.apathy.parsed.brutalTruth}"</p>
+                             <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-2 font-mono">Switching Cost: {rawData.apathy.result.switchingCost}</span>
+                             <p className="text-xs text-gray-300 font-bold italic">"Brutal Truth: {rawData.apathy.result.brutalTruth}"</p>
                           </div>
 
                           <div className="space-y-4">
                              <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Psychological Friction Points</h4>
-                             {rawData.apathy.parsed.psychologicalFriction?.map((f: any, i: number) => (
+                             {rawData.apathy.result.psychologicalFriction?.map((f: any, i: number) => (
                                 <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-white/30 transition-all">
                                    <div className="flex justify-between items-start mb-2">
                                       <span className="text-xs font-black text-white uppercase">{f.point}</span>
@@ -1111,13 +1131,13 @@ export default function Home() {
                           <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">ACTION-BASED FRICTION TEST</h4>
                           <div className="p-6 bg-black/40 border border-white/5 rounded-2xl mb-6">
                              <span className="text-[9px] text-gray-500 uppercase block mb-2">The Value Hook</span>
-                             <p className="text-lg text-white font-black italic leading-tight animate-pulse">"{rawData.apathy.parsed.empiricalTest?.proposition}"</p>
+                             <p className="text-lg text-white font-black italic leading-tight animate-pulse">"{rawData.apathy.result.empiricalTest?.proposition}"</p>
                           </div>
                           <div className="space-y-4">
                              <div className="flex gap-4 items-center">
                                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-center flex-1">
                                    <span className="text-[9px] text-gray-500 uppercase block mb-1">Target Action</span>
-                                   <span className="text-sm font-black text-red-500">{rawData.apathy.parsed.empiricalTest?.threshold}</span>
+                                   <span className="text-sm font-black text-red-500">{rawData.apathy.result.empiricalTest?.threshold}</span>
                                 </div>
                                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-center flex-1">
                                    <span className="text-[9px] text-gray-500 uppercase block mb-1">Time Limit</span>
@@ -1140,25 +1160,25 @@ export default function Home() {
                  <div className="grid lg:grid-cols-2 gap-8">
                     <div className="glass-card">
                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Feasibility Analysis</h4>
-                       <p className="text-gray-300 leading-relaxed font-bold italic print:text-gray-700">"{renderSafe(rawData.p4?.parsed?.complexityAssessment) || "N/A"}"</p>
+                       <p className="text-gray-300 leading-relaxed font-bold italic print:text-gray-700">"{renderSafe(rawData.p4?.result?.complexityAssessment) || "N/A"}"</p>
                        <div className="mt-6 flex gap-4">
                           <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                              <span className="text-[10px] text-gray-500 uppercase block mb-1">Budget Path</span>
-                             <span className="font-black text-orange-400">{rawData.p4?.parsed?.bestBudgetPath || "N/A"}</span>
+                             <span className="font-black text-orange-400">{rawData.p4?.result?.bestBudgetPath || "N/A"}</span>
                           </div>
                           <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                              <span className="text-[10px] text-gray-500 uppercase block mb-1">Time to MVP</span>
-                             <span className="font-black text-orange-400">{rawData.p4?.parsed?.timeToMVP || "N/A"}</span>
+                             <span className="font-black text-orange-400">{rawData.p4?.result?.timeToMVP || "N/A"}</span>
                           </div>
                        </div>
                     </div>
                     <div className="glass-card">
                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Asymmetric Advantage</h4>
-                       <p className="text-lg text-green-400 font-black mb-4 underline decoration-green-500/30 font-mono tracking-tighter uppercase">{renderSafe(rawData.p6?.parsed?.primaryAdvantage) || "N/A"}</p>
-                       <p className="text-sm text-gray-400 italic mb-4">Strategy: {renderSafe(rawData.p6?.parsed?.differentiationStrategy)}</p>
-                       {rawData.p6?.parsed?.signals && (
+                       <p className="text-lg text-green-400 font-black mb-4 underline decoration-green-500/30 font-mono tracking-tighter uppercase">{renderSafe(rawData.p6?.result?.primaryAdvantage) || "N/A"}</p>
+                       <p className="text-sm text-gray-400 italic mb-4">Strategy: {renderSafe(rawData.p6?.result?.differentiationStrategy)}</p>
+                       {rawData.p6?.result?.signals && (
                          <div className="grid gap-2 mt-4 pt-4 border-t border-white/5">
-                            {rawData.p6.parsed.signals.map((sig: any, i: number) => (
+                            {rawData.p6.result.signals.map((sig: any, i: number) => (
                               <div key={i} className={`p-3 rounded-lg text-xs flex items-start gap-2 ${sig.type === 'green' ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                                  <span className={`font-black mt-px ${sig.type === 'green' ? 'text-green-400' : 'text-red-400'}`}>{sig.type === 'green' ? '✓' : '⚠'}</span>
                                  <div>
@@ -1183,7 +1203,7 @@ export default function Home() {
                    <div className="lg:col-span-2 glass-card">
                       <h4 className="text-xs font-black text-gray-500 uppercase mb-6 tracking-widest">Financial Architecture</h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        {rawData.p10?.parsed?.unitEconomics && Object.entries(rawData.p10.parsed.unitEconomics).map(([key, val]) => (
+                        {rawData.p10?.result?.unitEconomics && Object.entries(rawData.p10.result.unitEconomics).map(([key, val]) => (
                           <div key={key} className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
                             <span className="text-[9px] text-gray-500 uppercase block mb-1">{key.replace(/([A-Z])/g, ' $1')}</span>
                             <span className="text-lg font-black text-purple-400">{String(val)}{key.toLowerCase().includes('score') || key.toLowerCase().includes('ratio') ? '' : key.toLowerCase().includes('margin') ? '%' : '$'}</span>
@@ -1192,30 +1212,39 @@ export default function Home() {
                       </div>
                       <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl">
                         <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-2">Funding Roadmap</span>
-                        <p className="text-sm text-gray-300">{rawData.p10?.parsed?.fundingRequiredToScale}</p>
-                        <p className="text-[10px] text-gray-500 mt-2 uppercase">Intensity: {rawData.p10?.parsed?.capitalIntensity}</p>
+                        <p className="text-sm text-gray-300">{rawData.p10?.result?.fundingRequiredToScale}</p>
+                        <p className="text-[10px] text-gray-500 mt-2 uppercase">Intensity: {rawData.p10?.result?.capitalIntensity}</p>
                       </div>
                    </div>
                    <div className="glass-card">
                       <h4 className="text-xs font-black text-gray-500 uppercase mb-6 tracking-widest flex justify-between items-center">
                         <span>Exit Scenarios</span>
-                        <button 
-                          disabled={isStressTesting}
-                          onClick={() => {
-                            const change = prompt("Propose a strategic pivot or exit change (e.g. 'Partner with NVIDIA for distribution'):");
-                            if (change) handleStressTest(change);
-                          }}
-                          className={`text-[9px] px-2 py-1 rounded transition-all font-black uppercase ${isStressTesting ? 'bg-gray-500 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600 text-white'}`}
-                        >
-                          {isStressTesting ? 'Testing...' : 'Stress Test Pivot'}
-                        </button>
-
                       </h4>
-                      <div className="text-5xl font-black text-white mb-2">{rawData.p10?.parsed?.exitScore}/100</div>
+                      
+                      <div className="space-y-4">
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={stressTestInput}
+                            onChange={(e) => setStressTestInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && stressTestInput && handleStressTest(stressTestInput)}
+                            placeholder="Propose a pivot (e.g. 'B2B focus')..."
+                            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs focus:border-purple-500 outline-none transition-all"
+                          />
+                          <button 
+                            disabled={isStressTesting || !stressTestInput}
+                            onClick={() => handleStressTest(stressTestInput)}
+                            className={`px-4 py-2 rounded-lg transition-all font-black text-[10px] uppercase ${isStressTesting || !stressTestInput ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600 text-white'}`}
+                          >
+                            {isStressTesting ? 'Testing...' : 'Test'}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-5xl font-black text-white mb-2">{rawData.p10?.result?.exitScore}/100</div>
 
                       <span className="text-[10px] text-gray-500 uppercase block mb-6">Exit Probability Score</span>
                       <div className="space-y-4">
-                        {rawData.p10?.parsed?.exitScenarios?.map((s: any, i: number) => (
+                        {rawData.p10?.result?.exitScenarios?.map((s: any, i: number) => (
                           <div key={i} className="p-3 bg-white/5 rounded-lg border border-white/5 group hover:bg-white/10 transition-all">
                             <p className="text-sm font-black text-white">{s.acquirer}</p>
                             <p className="text-[10px] text-purple-400 font-bold mb-1">{s.estimatedMultiple}</p>
@@ -1233,19 +1262,19 @@ export default function Home() {
                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 text-lg">X</span>
                    IP & REGULATORY FORTRESS
                 </h3>
-                {rawData.p9?.parsed && (
+                {rawData.p9?.result && (
                   <div className="grid lg:grid-cols-2 gap-8">
                     <div className="glass-card">
                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Regulatory Friction</h4>
                        <div className="flex items-center gap-4 mb-6">
-                         <div className="text-5xl font-black text-white">{rawData.p9.parsed.regulatoryFriction}/10</div>
+                         <div className="text-5xl font-black text-white">{rawData.p9.result.regulatoryFriction}/10</div>
                          <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
-                           <div className={`h-full transition-all ${rawData.p9.parsed.regulatoryFriction >= 7 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${rawData.p9.parsed.regulatoryFriction * 10}%` }} />
+                           <div className={`h-full transition-all ${rawData.p9.result.regulatoryFriction >= 7 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${rawData.p9.result.regulatoryFriction * 10}%` }} />
                          </div>
                        </div>
-                       <p className="text-sm text-gray-400 italic mb-6">"{rawData.p9.parsed.complianceMoatStrategy}"</p>
+                       <p className="text-sm text-gray-400 italic mb-6">"{rawData.p9.result.complianceMoatStrategy}"</p>
                        <div className="space-y-3">
-                         {rawData.p9.parsed.requiredCompliances?.map((c: any, i: number) => (
+                         {rawData.p9.result.requiredCompliances?.map((c: any, i: number) => (
                            <div key={i} className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
                              <div className="flex flex-col">
                                <span className="text-xs font-bold text-white">{c.framework}</span>
@@ -1258,9 +1287,9 @@ export default function Home() {
                     </div>
                     <div className="glass-card">
                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4">IP Risk & Landmines</h4>
-                       <div className="text-2xl font-black text-purple-400 mb-4">IP Defense Score: {rawData.p9.parsed.ipScore}%</div>
+                       <div className="text-2xl font-black text-purple-400 mb-4">IP Defense Score: {rawData.p9.result.ipScore}%</div>
                        <div className="grid gap-3">
-                         {rawData.p9.parsed.keyLandmines?.map((l: any, i: number) => (
+                         {rawData.p9.result.keyLandmines?.map((l: any, i: number) => (
                            <div key={i} className={`p-4 rounded-xl border-l-4 ${l.severity === 'High' ? 'border-red-500 bg-red-500/5' : 'border-yellow-500 bg-yellow-500/5'}`}>
                              <p className="text-[10px] font-black uppercase text-gray-500 mb-1">{l.type}</p>
                              <p className="text-xs text-gray-200">{l.risk}</p>
@@ -1273,7 +1302,7 @@ export default function Home() {
               </section>
 
               {/* XI. Founder Capability Gap Interview */}
-              {rawData.p_fit?.parsed && (
+              {rawData.p_fit?.result && (
                  <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.0s' }}>
                     <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
                        <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">XI</span>
@@ -1286,15 +1315,15 @@ export default function Home() {
                           <h4 className="text-xs font-black text-red-500 uppercase tracking-widest">THE FOUNDER REALITY CHECK</h4>
                           <span className="text-[8px] bg-red-500 text-white px-2 py-0.5 rounded font-black">FATAL IF FAKED</span>
                        </div>
-                       <p className="text-lg text-white font-black italic mb-4 leading-tight">"{rawData.p_fit.parsed.realityCheck?.question}"</p>
+                       <p className="text-lg text-white font-black italic mb-4 leading-tight">"{rawData.p_fit.result.realityCheck?.question}"</p>
                        <div className="grid lg:grid-cols-2 gap-4">
                           <div className="p-3 bg-white/5 rounded-lg border border-white/5">
                              <span className="text-[9px] text-gray-500 uppercase block mb-1">Execution Bottleneck</span>
-                             <p className="text-xs text-gray-300 font-bold">{rawData.p_fit.parsed.realityCheck?.targetBottleneck}</p>
+                             <p className="text-xs text-gray-300 font-bold">{rawData.p_fit.result.realityCheck?.targetBottleneck}</p>
                           </div>
                           <div className="p-3 bg-red-500/10 rounded-lg border border-red-500/20">
                              <span className="text-[9px] text-red-400 font-black uppercase block mb-1">Failure Signal</span>
-                             <p className="text-xs text-red-200 italic">{rawData.p_fit.parsed.realityCheck?.failureSignal}</p>
+                             <p className="text-xs text-red-200 italic">{rawData.p_fit.result.realityCheck?.failureSignal}</p>
                           </div>
                        </div>
                     </div>
@@ -1302,7 +1331,7 @@ export default function Home() {
                     <div className="grid lg:grid-cols-3 gap-6">
                        <div className="lg:col-span-2 space-y-4">
                           <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Authority Probe</h4>
-                          {rawData.p_fit.parsed.capabilityGapInterview?.map((q: any, i: number) => (
+                          {rawData.p_fit.result.capabilityGapInterview?.map((q: any, i: number) => (
                              <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-blue-500/30 transition-all">
                                 <div className="flex gap-4 items-start">
                                    <span className="text-lg font-serif opacity-30 text-blue-400">?</span>
@@ -1321,7 +1350,7 @@ export default function Home() {
                           <div className="glass-card border-l-4 border-blue-500 !bg-blue-500/5">
                              <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Missing Skillsets</h4>
                              <ul className="space-y-3">
-                                {rawData.p_fit.parsed.missingSkillsets?.map((s: any, i: number) => (
+                                {rawData.p_fit.result.missingSkillsets?.map((s: any, i: number) => (
                                    <li key={i} className="text-xs text-gray-300 font-bold flex items-center gap-2">
                                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                                       {s}
@@ -1331,7 +1360,7 @@ export default function Home() {
                           </div>
                            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                               <span className="text-[9px] text-gray-500 uppercase font-black block mb-2">The Unfair Advantage</span>
-                              <p className="text-xs text-blue-100 font-bold italic leading-tight">"{rawData.p_fit.parsed.unfairAdvantage}"</p>
+                              <p className="text-xs text-blue-100 font-bold italic leading-tight">"{rawData.p_fit.result.unfairAdvantage}"</p>
                            </div>
                         </div>
                      </div>
@@ -1339,7 +1368,7 @@ export default function Home() {
                )}
 
              {/* XII. Pre-Mortem: Socratic Death Simulation */}
-             {rawData.preMortem?.parsed && (
+             {rawData.preMortem?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.2s' }}>
                    <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
                       <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">XII</span>
@@ -1348,7 +1377,7 @@ export default function Home() {
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Fatal Death Scenarios</h4>
-                         {rawData.preMortem.parsed.fatalScenarios?.map((s: any, i: number) => (
+                         {rawData.preMortem.result.fatalScenarios?.map((s: any, i: number) => (
                             <div key={i} className={`p-6 rounded-2xl border ${s.probability === 'High' ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-white/10'}`}>
                                <h5 className="text-md font-black text-white mb-2 uppercase tracking-tighter">{s.name}</h5>
                                <p className="text-xs text-gray-400 leading-relaxed mb-4 italic">"{s.description}"</p>
@@ -1362,7 +1391,7 @@ export default function Home() {
                          <div className="glass-card !bg-red-500/5 border-red-500/20">
                             <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-6 border-b border-red-500/10 pb-2">The Socratic Probe</h4>
                             <div className="space-y-6">
-                               {rawData.preMortem.parsed.socraticDialogue?.map((d: any, i: number) => (
+                               {rawData.preMortem.result.socraticDialogue?.map((d: any, i: number) => (
                                   <div key={i} className="group">
                                      <p className="text-sm font-black text-white italic group-hover:text-red-400 transition-colors">"{d.question}"</p>
                                      <div className="flex justify-between mt-2">
@@ -1376,7 +1405,7 @@ export default function Home() {
                          <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                             <h4 className="text-[9px] text-green-400 uppercase font-black mb-3">Immediate Countermeasures</h4>
                             <ul className="space-y-2">
-                               {rawData.preMortem.parsed.immediateCountermeasures?.map((c: any, i: number) => (
+                               {rawData.preMortem.result.immediateCountermeasures?.map((c: any, i: number) => (
                                   <li key={i} className="text-[10px] text-gray-300 flex items-center gap-2">
                                      <span className="w-1 h-1 rounded-full bg-green-500"></span>
                                      {c}
@@ -1387,13 +1416,13 @@ export default function Home() {
                       </div>
                    </div>
                    <div className="p-4 text-center border-y border-white/10 italic">
-                      <p className="text-lg font-serif text-gray-400">"{rawData.preMortem.parsed.closingThought}"</p>
+                      <p className="text-lg font-serif text-gray-400">"{rawData.preMortem.result.closingThought}"</p>
                    </div>
                 </section>
              )}
 
              {/* XIII. Regulatory IQ & Capability Gap */}
-             {rawData.p9?.parsed && (
+             {rawData.p9?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.4s' }}>
                    <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
                       <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">XIII</span>
@@ -1403,7 +1432,7 @@ export default function Home() {
                      <div className="space-y-6">
                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">The 7 Critical Questions</h4>
                        <div className="grid gap-4">
-                         {rawData.p9.parsed.criticalQuestions?.map((q: any, i: number) => (
+                         {rawData.p9.result.criticalQuestions?.map((q: any, i: number) => (
                             <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-xl">
                                <p className="text-xs font-bold text-white mb-2 leading-tight">Q: {q.question}</p>
                                <div className="flex justify-between">
@@ -1417,19 +1446,19 @@ export default function Home() {
                      <div className="space-y-6">
                        <div className="glass-card !bg-purple-500/5 border-purple-500/20">
                           <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4">Compliance Moat Strategy</h4>
-                          <p className="text-sm text-gray-200 font-bold italic leading-relaxed">"{rawData.p9.parsed.complianceMoat}"</p>
+                          <p className="text-sm text-gray-200 font-bold italic leading-relaxed">"{rawData.p9.result.complianceMoat}"</p>
                        </div>
                        <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                           <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Required Strategic Advisors</h4>
                           <div className="flex flex-wrap gap-2">
-                             {rawData.p9.parsed.requiredAdvisors?.map((a: string, i: number) => (
+                             {rawData.p9.result.requiredAdvisors?.map((a: string, i: number) => (
                                 <span key={i} className="px-3 py-1 bg-purple-500/10 text-purple-300 rounded-full text-[10px] font-black uppercase">{a}</span>
                              ))}
                           </div>
                        </div>
                        <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
                           <span className="text-[9px] text-red-500 font-black uppercase tracking-widest block mb-1">Complexity Warning</span>
-                          <p className="text-xs text-gray-400 leading-tight">"{rawData.p9.parsed.regulatoryComplexity}"</p>
+                          <p className="text-xs text-gray-400 leading-tight">"{rawData.p9.result.regulatoryComplexity}"</p>
                        </div>
                      </div>
                    </div>
@@ -1437,7 +1466,7 @@ export default function Home() {
              )}
 
              {/* XIV. Competitive Retaliation Simulation */}
-             {rawData.competitiveResponse?.parsed && (
+             {rawData.competitiveResponse?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.6s' }}>
                    <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
                       <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">XIV</span>
@@ -1446,7 +1475,7 @@ export default function Home() {
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Incumbent Retaliation Playbook</h4>
-                         {rawData.competitiveResponse.parsed.retaliationMoves?.map((m: any, i: number) => (
+                         {rawData.competitiveResponse.result.retaliationMoves?.map((m: any, i: number) => (
                             <div key={i} className={`p-6 rounded-2xl border ${m.lethality === 'Fatal' ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-white/10'}`}>
                                <div className="flex justify-between items-start mb-4">
                                   <span className="text-xs font-black text-white uppercase">{m.competitor}</span>
@@ -1465,19 +1494,19 @@ export default function Home() {
                             <div className="space-y-4">
                                <div className="p-4 bg-black/40 rounded-xl border border-orange-500/10">
                                   <span className="text-[9px] text-orange-500 font-black uppercase block mb-2">The Silent Killer</span>
-                                  <p className="text-md font-black text-white mb-2">{rawData.competitiveResponse.parsed.silentKiller?.name}</p>
-                                  <p className="text-xs text-gray-400 italic">"{rawData.competitiveResponse.parsed.silentKiller?.pivotLogic}"</p>
-                                  <span className="text-[8px] font-black uppercase text-red-500 mt-2 block">Threat: {rawData.competitiveResponse.parsed.silentKiller?.threatLevel}</span>
+                                  <p className="text-md font-black text-white mb-2">{rawData.competitiveResponse.result.silentKiller?.name}</p>
+                                  <p className="text-xs text-gray-400 italic">"{rawData.competitiveResponse.result.silentKiller?.pivotLogic}"</p>
+                                  <span className="text-[8px] font-black uppercase text-red-500 mt-2 block">Threat: {rawData.competitiveResponse.result.silentKiller?.threatLevel}</span>
                                </div>
                                <div className="p-4 bg-purple-500/5 rounded-xl border border-purple-500/20">
                                   <span className="text-[9px] text-purple-400 font-black uppercase block mb-1">Unscalable Advantage</span>
-                                  <p className="text-xs text-gray-200 font-bold italic">"{rawData.competitiveResponse.parsed.unscalableAdvantage}"</p>
+                                  <p className="text-xs text-gray-200 font-bold italic">"{rawData.competitiveResponse.result.unscalableAdvantage}"</p>
                                </div>
                             </div>
                          </div>
                          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                             <span className="text-[9px] text-green-400 font-black uppercase tracking-widest block mb-2">Defensive Posture</span>
-                            <p className="text-sm text-gray-300 font-bold">"{rawData.competitiveResponse.parsed.competitiveMoat}"</p>
+                            <p className="text-sm text-gray-300 font-bold">"{rawData.competitiveResponse.result.competitiveMoat}"</p>
                          </div>
                       </div>
                    </div>
@@ -1485,7 +1514,7 @@ export default function Home() {
              )}
 
              {/* XV. Adversarial Council: Ground Truth */}
-             {rawData.debate?.parsed && (
+             {rawData.debate?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.8s' }}>
                    <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
                       <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">XV</span>
@@ -1494,22 +1523,22 @@ export default function Home() {
                    <div className="grid lg:grid-cols-2 gap-8">
                      <div className="p-8 bg-blue-500/5 border border-blue-500/30 rounded-3xl">
                        <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-6">The Synthesis</h4>
-                       <p className="text-xl text-white font-bold italic leading-relaxed mb-8">"{rawData.debate.parsed.groundTruth}"</p>
+                       <p className="text-xl text-white font-bold italic leading-relaxed mb-8">"{rawData.debate.result.groundTruth}"</p>
                        <div className="space-y-3">
                           <div className="p-3 bg-white/5 rounded-lg">
                              <span className="text-[9px] text-gray-500 uppercase block mb-1">Unresolved Conflict</span>
-                             <p className="text-xs text-orange-400 italic">"{rawData.debate.parsed.unresolvedConflict}"</p>
+                             <p className="text-xs text-orange-400 italic">"{rawData.debate.result.unresolvedConflict}"</p>
                           </div>
                           <div className="p-3 bg-white/5 rounded-lg">
                              <span className="text-[9px] text-gray-500 uppercase block mb-1">Evidence Strength</span>
-                             <p className="text-xs text-green-400 font-black">{rawData.debate.parsed.evidenceStrength}</p>
+                             <p className="text-xs text-green-400 font-black">{rawData.debate.result.evidenceStrength}</p>
                           </div>
                        </div>
                      </div>
                      <div className="space-y-4">
                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Historical Precedent (Cite)</h4>
                        <div className="p-6 bg-black/40 rounded-2xl border border-white/5 italic">
-                          <p className="text-sm text-gray-300">"{rawData.debate.parsed.historicalPrecedent}"</p>
+                          <p className="text-sm text-gray-300">"{rawData.debate.result.historicalPrecedent}"</p>
                        </div>
                      </div>
                    </div>

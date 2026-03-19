@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateMarket(idea: string, research: string): Promise<string> {
   const prompt = `
@@ -33,8 +33,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
+  const result = await think([
     { role: 'system', content: 'You are the "Unit Economics Specialist." Your job is to audit the monetization potential, capital efficiency, and financial viability of startup ideas. Be data-driven and realistic.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

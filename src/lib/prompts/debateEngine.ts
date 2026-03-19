@@ -1,4 +1,4 @@
-import { thinkDeep, thinkFast } from '../ai';
+import { think } from '../ai';
 
 export async function runDebate(
   idea: string,
@@ -37,8 +37,8 @@ TASK: Provide the 3 strongest, evidence-backed arguments for why this startup wi
 `;
 
   const [bearRaw, bullRaw] = await Promise.all([
-    thinkFast([{ role: 'system', content: 'You are a cynical, battle-hardened VC. You value hard evidence over theory.' }, { role: 'user', content: bearPrompt }]),
-    thinkFast([{ role: 'system', content: 'You are a visionary growth investor. You value proven scale patterns over theory.' }, { role: 'user', content: bullPrompt }])
+    think([{ role: 'system', content: 'You are a cynical, battle-hardened VC. You value hard evidence over theory.' }, { role: 'user', content: bearPrompt }], { maxTokens: 4096 }),
+    think([{ role: 'system', content: 'You are a visionary growth investor. You value proven scale patterns over theory.' }, { role: 'user', content: bullPrompt }], { maxTokens: 4096 })
   ]);
 
   const moderatorPrompt = `
@@ -48,10 +48,10 @@ IDEA:
 ${idea}
 
 BEAR'S CASE (Constraint: Must cite named failure):
-${bearRaw}
+${bearRaw.content}
 
 BULL'S CASE (Constraint: Must cite named success):
-${bullRaw}
+${bullRaw.content}
 
 TASK: Synthesize this debate into "The Ground Truth". 
 Where do they agree? Where is the conflict genuine? 
@@ -60,8 +60,8 @@ Identify if either agent failed their "Hard Evidence" constraint (stating "Unver
 FORMAT:
 Return a JSON object:
 {
-  "bearCase": "${bearRaw.replace(/"/g, '\\"').replace(/\n/g, '\\n')}",
-  "bullCase": "${bullRaw.replace(/"/g, '\\"').replace(/\n/g, '\\n')}",
+  "bearCase": "Concise summary of the Bear's 3 main points and historical evidence.",
+  "bullCase": "Concise summary of the Bull's 3 main points and historical evidence.",
   "groundTruth": "The objective reality after weighing both sides...",
   "unresolvedConflict": "The primary tension that remains...",
   "evidenceStrength": "High | Medium | Low",
@@ -69,9 +69,12 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
+  const result = await think([
     { role: 'system', content: 'You are a Master Validator specializing in adversarial analysis and multi-agent synthesis.' },
     { role: 'user', content: moderatorPrompt }
   ], { jsonMode: true });
+
+  return result.content;
 }
+
 

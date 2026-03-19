@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function finalScoring(
   idea: string, 
@@ -49,6 +49,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true, temperature: 0.3 });
-}
+  const result = await think([
+    { role: 'system', content: 'You are a Master Validator specializing in adversarial analysis and multi-agent synthesis.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
 
+  return result.content;
+}

@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function generateBlueprint(idea: string, risks: string): Promise<string> {
   const prompt = `
@@ -34,5 +34,6 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  const result = await think([{ role: 'user', content: prompt }], { jsonMode: true });
+  return result.content;
 }

@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateFounderFit(
   ideaStr: string,
@@ -32,9 +32,11 @@ TASK:
     }
 `;
 
-  return await thinkDeep([
+  const result = await think([
     { role: 'system', content: 'You are a elite VC talent scout specialized in founder-market fit. You look for "Authority" and "Execution Edge".' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }
 

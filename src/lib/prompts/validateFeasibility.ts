@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateFeasibility(idea: string, context: string): Promise<string> {
   const prompt = `
@@ -29,8 +29,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are the \"Gritty Lead Engineer.\" Your job is to audit the technical feasibility and execution risk of this startup idea. Be realistic about complexity and timelines.' },
+  const result = await think([
+    { role: 'system', content: 'You are a Master Feasibility Analyst. You look for the "Deadly Complexity" that founders underestimate.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

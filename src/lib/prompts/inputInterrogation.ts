@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function inputInterrogation(
   idea: string
@@ -41,8 +41,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a Veteran VC Partner extracting hard data from a founder. Your goal is to eliminate "garbage-in" risk by forcing extreme specificity before any audit begins.' },
+  const result = await think([
+    { role: 'system', content: 'You are an elite business analyst and interviewer.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

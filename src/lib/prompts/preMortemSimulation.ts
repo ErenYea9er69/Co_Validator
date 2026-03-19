@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function preMortemSimulation(
   idea: string,
@@ -36,9 +36,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a Master of Pre-Mortems. You excel at identifying the "Inherent Death" of a system before it is built.' },
+  const result = await think([
+    { role: 'system', content: 'You are a veteran Pre-Mortem Analyst specializing in Socratic risk discovery. You look for the "Silent Killers" that founders ignore.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
-}
 
+  return result.content;
+}

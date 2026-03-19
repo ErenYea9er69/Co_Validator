@@ -26,10 +26,19 @@ function rotateKey() {
   }
 }
 
-export async function thinkDeep(
+export interface AIResult {
+  content: string;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export async function think(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   options: { jsonMode?: boolean; temperature?: number; maxTokens?: number } = {}
-): Promise<string> {
+): Promise<AIResult> {
   const { temperature = 0.5, jsonMode = false, maxTokens = 16384 } = options;
 
   return retryWithBackoff(async () => {
@@ -41,7 +50,15 @@ export async function thinkDeep(
         max_tokens: maxTokens,
         ...(jsonMode && { response_format: { type: 'json_object' } }),
       });
-      return result.choices?.[0]?.message?.content || '';
+      
+      return {
+        content: result.choices?.[0]?.message?.content || '',
+        usage: {
+          prompt_tokens: result.usage?.prompt_tokens || 0,
+          completion_tokens: result.usage?.completion_tokens || 0,
+          total_tokens: result.usage?.total_tokens || 0,
+        }
+      };
     } catch (error: any) {
       if (error.status === 429 || error.status >= 500) rotateKey();
       throw error;
@@ -49,14 +66,3 @@ export async function thinkDeep(
   }, 3);
 }
 
-// Real thinkFast — lower token limit for interactive features (stress test, quick checks)
-export async function thinkFast(
-  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-  options: { jsonMode?: boolean; temperature?: number } = {}
-): Promise<string> {
-  return thinkDeep(messages, {
-    ...options,
-    temperature: options.temperature ?? 0.7,
-    maxTokens: 4096,
-  });
-}

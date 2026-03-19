@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function pivotEngine(idea: string, failures: string): Promise<string> {
   const prompt = `
@@ -28,5 +28,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([{ role: 'user', content: prompt }], { jsonMode: true });
+  const result = await think([
+    { role: 'system', content: 'You are a master "Pivot Architect" specialized in saving startups from the Tarpit.' },
+    { role: 'user', content: prompt }
+  ], { jsonMode: true });
+
+  return result.content;
 }

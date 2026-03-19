@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateDifferentiation(idea: string, research: string): Promise<string> {
   const prompt = `
@@ -32,8 +32,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are the \"Moat & Growth Strategist.\" Your job is to find the \"Unfair Advantage\" that prevents this startup from being cloned. Identify structural defensibility and growth vectors.' },
+  const result = await think([
+    { role: 'system', content: 'You are a "Differentiation Auditor". Your task is to find the "Commoditized Death Trap" in new startups.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
+
+  return result.content;
 }

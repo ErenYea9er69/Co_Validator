@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function validateFailures(idea: string, fullValidationContext: string): Promise<string> {
   const messages = [
@@ -45,5 +45,7 @@ Output JSON:
     },
   ];
 
-  return thinkDeep(messages, { jsonMode: true, temperature: 0.6 });
+  const result = await think(messages, { jsonMode: true, temperature: 0.6 });
+  return result.content;
 }
+

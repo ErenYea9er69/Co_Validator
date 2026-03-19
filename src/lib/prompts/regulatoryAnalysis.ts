@@ -1,4 +1,4 @@
-import { thinkDeep } from '../ai';
+import { think } from '../ai';
 
 export async function regulatoryAnalysis(
   idea: string,
@@ -32,9 +32,10 @@ Return a JSON object:
 }
 `;
 
-  return await thinkDeep([
-    { role: 'system', content: 'You are a Regulatory Strategist for high-stakes venture-backed companies in Fintech, Healthtech, and AI.' },
+  const result = await think([
+    { role: 'system', content: 'You are a Master Strategic Analyst specializing in regulatory risk and compliance moats.' },
     { role: 'user', content: prompt }
   ], { jsonMode: true });
-}
 
+  return result.content;
+}
