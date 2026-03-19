@@ -13,14 +13,27 @@ export async function apathySimulator(idea: string, researchSummary: string): Pr
   FORMAT:
   Return JSON:
   {
-    "cognitiveLoad": 0,
-    "decisionFatigue": 0,
-    "learningCurve": 0,
-    "emotionalBarriers": 0,
-    "trustDeficit": 0,
-    "fearOfChange": 0,
-    "apathyLevel": 0,
-    "frictionLogic": "string"
+    "apathyScore": 0,
+    "indifferenceArgument": "string",
+    "switchingCost": "string",
+    "brutalTruth": "string",
+    "psychologicalFriction": [
+      {
+        "point": "string",
+        "severity": "High | Medium",
+        "reason": "string"
+      }
+    ],
+    "empiricalTest": {
+      "proposition": "string",
+      "threshold": "string"
+    },
+    "cognitiveLoad": "string",
+    "decisionFatigue": "string",
+    "learningCurve": "string",
+    "emotionalBarriers": "string",
+    "trustDeficit": "string",
+    "fearOfChange": "string"
   }
   `;
 

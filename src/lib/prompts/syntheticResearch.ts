@@ -74,10 +74,8 @@ TASK:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a Senior Strategic Intelligence Officer. Your task is to extract "Ground Truth" from noisy digital signals.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'SyntheticResearch');
 }

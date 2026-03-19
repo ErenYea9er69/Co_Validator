@@ -13,10 +13,21 @@ export async function competitiveResponse(idea: string, researchSummary: string)
   FORMAT:
   Return JSON:
   {
-    "retaliationTactics": ["string"],
-    "incumbentMoats": ["string"],
-    "asymmetricCountermoves": ["string"],
-    "lethalityScore": 0
+    "retaliationMoves": [
+      {
+        "competitor": "string",
+        "lethality": "Fatal | Severe | Moderate",
+        "move": "string",
+        "probability": "High | Medium | Low"
+      }
+    ],
+    "silentKiller": {
+      "name": "string",
+      "pivotLogic": "string",
+      "threatLevel": "string"
+    },
+    "unscalableAdvantage": "string",
+    "competitiveMoat": "string"
   }
   `;
 

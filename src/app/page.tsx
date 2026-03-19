@@ -1889,7 +1889,7 @@ export default function Home() {
                 <button 
                   onClick={() => {
                      setResult(null);
-                     setPhase(0);
+                     setPhase(-1);
                      setPhaseName('');
                      setShowFullReport(false);
                      setChallenges(null);

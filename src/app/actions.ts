@@ -22,6 +22,7 @@ import { runDebate } from '@/lib/prompts/debateEngine';
 import { competitiveResponse } from '@/lib/prompts/competitiveResponse';
 import { apathySimulator } from '@/lib/prompts/apathySimulator';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
+import { stressTestSimulation } from '@/lib/prompts/stressTest';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 export function checkAuth(token?: string) {
@@ -175,9 +176,6 @@ export async function finalizeAudit(idea: any, researchContext: string, interrog
 
 export async function runStressTest(idea: any, change: string, auditSummary: { assumptions: any; reasoning: string }, token?: string) {
   checkAuth(token);
-  const systemPrompt = `You are the "Strategic Stress Test Engine". Evaluate how a proposed pivot or change affects the startup's "Critical Assumption Stack". 
-  Return JSON: { "impact": "Positive" | "Negative" | "Neutral", "verdict": "Positive | Negative | Neutral", "logic": "string", "mitigation": "string", "pivotPath": "string", "shiftReasoning": "string", "assumptionDeltas": [{ "assumption": "string", "originalRisk": "string", "newRisk": "string", "logic": "string" }] }`;
-  const userPrompt = `IDEA: ${JSON.stringify(idea)}\nCHANGE: ${change}\nCONTEXT: ${JSON.stringify(auditSummary)}`;
-  const result = await think(userPrompt, `StressTest-${Date.now()}`); // Pulse for rotation
-  return { result: safeJsonParse(result), usage: {} };
+  const raw = await stressTestSimulation(JSON.stringify(idea), change, JSON.stringify(auditSummary));
+  return { result: safeJsonParse(raw), usage: {} };
 }

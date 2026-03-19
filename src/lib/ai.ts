@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import crypto from 'crypto';
+import { retryWithBackoff } from './retryHandler';
 
 const API_KEYS = [
   process.env.OPENAI_API_KEY || '',
@@ -24,19 +25,23 @@ export async function think(
   prompt: string | { role: 'system' | 'user' | 'assistant'; content: string }[], 
   pulse: string = 'default'
 ) {
-  try {
-    const messages = typeof prompt === 'string' 
-      ? [{ role: 'user' as const, content: prompt }] 
-      : prompt;
+  const messages = typeof prompt === 'string' 
+    ? [{ role: 'user' as const, content: prompt }] 
+    : prompt;
 
-    const response = await getClient(pulse).chat.completions.create({
-      model: "gpt-4o",
-      messages,
-      response_format: { type: "json_object" },
-    });
+  try {
+    const response = await retryWithBackoff(async () => {
+      return await getClient(pulse).chat.completions.create({
+        model: "gpt-4o",
+        messages,
+        response_format: { type: "json_object" },
+      });
+    }, 3, 2000);
+    
     return response.choices[0].message.content || '{}';
   } catch (error: any) {
-    console.error("LLM Error:", error);
-    return JSON.stringify({ error: true, message: error.message });
+    console.error(`[LLM Error in pulse ${pulse}]:`, error);
+    // Throw error so that the orchestrator's Promise.allSettled correctly detects failure
+    throw new Error(`LLM Error: ${error.message || 'Unknown LLM failure'}`);
   }
 }

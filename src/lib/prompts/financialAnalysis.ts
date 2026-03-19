@@ -13,13 +13,40 @@ export async function financialAnalysis(idea: string, researchSummary: string): 
   FORMAT:
   Return JSON:
   {
+    "survivalSkeleton": {
+      "maxAffordableCAC": 0,
+      "minSurvivalChurn": 0,
+      "burnToFirstMilestone": 0,
+      "minTargetACV": 0
+    },
+    "deathGuillotine": {
+      "monthsToZero": 0,
+      "cashOutDate": "string",
+      "burnBreakdown": "string",
+      "fatalConstraint": "string"
+    },
     "breakevenConditions": "string",
-    "exitScore": 0,
-    "exitScenarios": ["string"],
-    "unitEconomics": "string",
+    "stressTests": [
+      {
+        "scenario": "string",
+        "impact": "string"
+      }
+    ],
+    "unitEconomics": {
+      "LTV": 0,
+      "CAC": 0,
+      "grossMargin": 0
+    },
     "fundingRequiredToScale": "string",
     "capitalIntensity": "Low | Medium | High",
-    "stressTests": ["string"]
+    "exitScore": 0,
+    "exitScenarios": [
+      {
+        "acquirer": "string",
+        "estimatedMultiple": "string",
+        "logic": "string"
+      }
+    ]
   }
   `;
 

@@ -15,9 +15,31 @@ export async function regulatoryAnalysis(idea: string, researchSummary: string):
   {
     "regulatoryFriction": 0,
     "complianceMoatStrategy": "string",
-    "requiredCompliances": ["string"],
+    "requiredCompliances": [
+      {
+        "framework": "string",
+        "timeline": "string",
+        "priority": "CRITICAL | HIGH | MEDIUM"
+      }
+    ],
     "ipScore": 0,
-    "keyLandmines": ["string"]
+    "keyLandmines": [
+      {
+        "type": "string",
+        "risk": "string",
+        "severity": "High | Medium | Low"
+      }
+    ],
+    "criticalQuestions": [
+      {
+        "question": "string",
+        "impact": "string",
+        "priority": "CRITICAL | HIGH | MEDIUM"
+      }
+    ],
+    "complianceMoat": "string",
+    "requiredAdvisors": ["string"],
+    "regulatoryComplexity": "string"
   }
   `;
 
