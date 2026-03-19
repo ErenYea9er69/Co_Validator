@@ -47,7 +47,9 @@ OUTPUT JSON FORMAT:
       "slideNumber": 1,
       "title": "Short Slide Title",
       "subtitle": "Punchy one-sentence takeaway/headline",
+      "slideLayout": "text" | "chart" | "comparison",
       "bulletPoints": ["Point 1", "Point 2", "Point 3"],
+      "objectionHotspot": "The #1 brutal question an investor will ask exactly when you show this slide (e.g., 'Warning: VCs will challenge this TAM calculation as top-down nonsense').",
       "speakerNotes": "Detailed guidance for the founder on what to emphasize."
     }
   ]

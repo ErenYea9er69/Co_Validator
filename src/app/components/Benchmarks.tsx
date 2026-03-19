@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import * as actions from '../actions';
 import { IdeaInput } from './SprintPlan';
 
 interface BenchmarksProps {
@@ -7,159 +8,277 @@ interface BenchmarksProps {
   auditResult: any;
 }
 
-const INDUSTRY_AVERAGES: Record<string, Record<string, number>> = {
-  'SaaS': { 'Problem Validation': 68, 'Defensibility (Moat)': 42, 'Market Opportunity': 75, 'Founder-Market Fit': 65 },
-  'E-commerce': { 'Problem Validation': 55, 'Defensibility (Moat)': 30, 'Market Opportunity': 80, 'Founder-Market Fit': 50 },
-  'HealthTech': { 'Problem Validation': 72, 'Defensibility (Moat)': 60, 'Market Opportunity': 65, 'Founder-Market Fit': 85 },
-  'FinTech': { 'Problem Validation': 70, 'Defensibility (Moat)': 55, 'Market Opportunity': 85, 'Founder-Market Fit': 75 },
-  'AI': { 'Problem Validation': 75, 'Defensibility (Moat)': 35, 'Market Opportunity': 90, 'Founder-Market Fit': 60 },
-  'Consumer': { 'Problem Validation': 60, 'Defensibility (Moat)': 25, 'Market Opportunity': 85, 'Founder-Market Fit': 55 },
-  'DevTools': { 'Problem Validation': 78, 'Defensibility (Moat)': 50, 'Market Opportunity': 60, 'Founder-Market Fit': 80 },
-  'Default': { 'Problem Validation': 62, 'Defensibility (Moat)': 45, 'Market Opportunity': 71, 'Founder-Market Fit': 58 }
+const FALLBACK_INDUSTRY_AVERAGES: Record<string, Record<string, number>> = {
+  'SaaS': { 'Problem Validation': 68, 'Defensibility': 42, 'Market Opportunity': 75, 'Financial Viability': 60, 'Founder Fit': 65 },
+  'E-commerce': { 'Problem Validation': 55, 'Defensibility': 30, 'Market Opportunity': 80, 'Financial Viability': 70, 'Founder Fit': 50 },
+  'Hardware': { 'Problem Validation': 70, 'Defensibility': 85, 'Market Opportunity': 65, 'Financial Viability': 40, 'Founder Fit': 80 },
+  'Consumer': { 'Problem Validation': 60, 'Defensibility': 25, 'Market Opportunity': 85, 'Financial Viability': 55, 'Founder Fit': 55 },
+  'Default': { 'Problem Validation': 62, 'Defensibility': 45, 'Market Opportunity': 71, 'Financial Viability': 58, 'Founder Fit': 58 }
 };
+
+const METRIC_LABELS = ['Problem Validation', 'Defensibility', 'Market Opportunity', 'Financial Viability', 'Founder Fit'];
 
 interface Metric {
   title: string;
   score: number;
   avg: number;
   reasoning?: string;
+  actionPlan?: string;
+  loadingAction?: boolean;
 }
 
 export default function Benchmarks({ idea, rawData, auditResult }: BenchmarksProps) {
-  const industry = idea.industry || 'Default';
-  const averages = INDUSTRY_AVERAGES[industry] || INDUSTRY_AVERAGES['Default'];
+  const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [auditSampleCount, setAuditSampleCount] = useState<number>(0);
 
-  // Dynamically extract all expert scores and reasoning
-  const extractedMetrics: Metric[] = [
-    { 
-      title: 'Problem Validation', 
-      score: rawData?.p1?.result?.validationScore || rawData?.p1?.result?.viabilityScore || 65,
-      avg: averages['Problem Validation'] || 62,
-      reasoning: rawData?.p1?.result?.reasoning
-    },
-    { 
-      title: 'Defensibility (Moat)', 
-      score: rawData?.p5?.result?.confidenceScore || 50,
-      avg: averages['Defensibility (Moat)'] || 45,
-      reasoning: rawData?.p5?.result?.reasoning
-    },
-    { 
-      title: 'Market Opportunity', 
-      score: rawData?.p4?.result?.opportunityScore || 70,
-      avg: averages['Market Opportunity'] || 71,
-      reasoning: rawData?.p4?.result?.reasoning
-    },
-    { 
-      title: 'Founder-Market Fit', 
-      score: rawData?.p7?.result?.fitScore || 80,
-      avg: averages['Founder-Market Fit'] || 58,
-      reasoning: rawData?.p7?.result?.reasoning
+  useEffect(() => {
+    // 1. Manage Audit History for Dynamic Averages
+    const industry = idea.industry || 'Default';
+    let history: any[] = [];
+    try {
+      history = JSON.parse(localStorage.getItem('co-validator-audit-history') || '[]');
+    } catch (e) {}
+
+    // Check if THIS audit is already in history (by name/time roughly)
+    const isNew = !history.find(h => h.name === idea.name && h.industry === industry);
+    if (isNew) {
+      history.push({
+        name: idea.name,
+        industry: industry,
+        date: new Date().toISOString(),
+        scores: {
+          'Problem Validation': rawData?.p1?.result?.validationScore || rawData?.p1?.result?.viabilityScore || 65,
+          'Defensibility': rawData?.p5?.result?.confidenceScore || 50,
+          'Market Opportunity': rawData?.p4?.result?.opportunityScore || 70,
+          'Financial Viability': rawData?.p6?.result?.marginViabilityScore || 60,
+          'Founder Fit': rawData?.p7?.result?.founderMarketFitScore || 65
+        }
+      });
+      localStorage.setItem('co-validator-audit-history', JSON.stringify(history));
     }
-  ];
 
-  // Add any other expert scores found in rawData (e.g. p6 financials)
-  if (rawData?.p6?.result?.financialViabilityScore) {
-    extractedMetrics.push({
-      title: 'Financial Viability',
-      score: rawData?.p6?.result?.financialViabilityScore,
-      avg: 55,
-      reasoning: rawData?.p6?.result?.reasoning
-    });
-  }
+    const industryAudits = history.filter(h => h.industry === industry);
+    setAuditSampleCount(industryAudits.length);
 
-  const aggregateScore = Math.round(extractedMetrics.reduce((sum, m) => sum + m.score, 0) / extractedMetrics.length);
+    const fallbacks = FALLBACK_INDUSTRY_AVERAGES[industry] || FALLBACK_INDUSTRY_AVERAGES['Default'];
+    
+    // Compute Averages
+    const computedAverages: Record<string, number> = {};
+    for (const label of METRIC_LABELS) {
+      if (industryAudits.length > 2) {
+        // Use real dynamic average if we have enough samples
+        const sum = industryAudits.reduce((acc, curr) => acc + (curr.scores[label] || 50), 0);
+        computedAverages[label] = Math.round(sum / industryAudits.length);
+      } else {
+        computedAverages[label] = fallbacks[label] || 50;
+      }
+    }
 
-  const getPercentileLabel = (score: number) => {
-    if (score >= 85) return 'Top 10%';
-    if (score >= 75) return 'Top 25%';
-    if (score >= 60) return 'Average (Top 50%)';
-    return 'Bottom 50%';
+    const initialMetrics: Metric[] = [
+      { 
+        title: 'Problem Validation', 
+        score: rawData?.p1?.result?.validationScore || rawData?.p1?.result?.viabilityScore || 65,
+        avg: computedAverages['Problem Validation'],
+        reasoning: rawData?.p1?.result?.reasoning
+      },
+      { 
+        title: 'Defensibility', 
+        score: rawData?.p5?.result?.confidenceScore || 50,
+        avg: computedAverages['Defensibility'],
+        reasoning: rawData?.p5?.result?.reasoning
+      },
+      { 
+        title: 'Market Opportunity', 
+        score: rawData?.p4?.result?.opportunityScore || 70,
+        avg: computedAverages['Market Opportunity'],
+        reasoning: rawData?.p4?.result?.reasoning
+      },
+      { 
+        title: 'Financial Viability', 
+        score: rawData?.p6?.result?.marginViabilityScore || 60,
+        avg: computedAverages['Financial Viability'],
+        reasoning: rawData?.p6?.result?.marginReasoning || rawData?.p6?.result?.reasoning
+      },
+      { 
+        title: 'Founder Fit', 
+        score: rawData?.p7?.result?.founderMarketFitScore || 65,
+        avg: computedAverages['Founder Fit'],
+        reasoning: rawData?.p7?.result?.reasoning
+      }
+    ];
+
+    setMetrics(initialMetrics);
+  }, [idea, rawData]);
+
+  const getActionPlan = async (index: number) => {
+    setMetrics(prev => prev.map((m, i) => i === index ? { ...m, loadingAction: true } : m));
+    try {
+      const token = localStorage.getItem('AUDIT_SECRET') || undefined;
+      const m = metrics[index];
+      const res = await actions.getMetricActionAdvice(m.title, m.score, m.reasoning || '', idea.industry || 'Tech', token);
+      
+      if (res.result) {
+        setMetrics(prev => prev.map((m, i) => i === index ? { ...m, actionPlan: res.result.actionableAdvice, loadingAction: false } : m));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to get action plan.");
+      setMetrics(prev => prev.map((m, i) => i === index ? { ...m, loadingAction: false } : m));
+    }
   };
 
-  const getGlobalPercentile = () => {
-    if (aggregateScore >= 85) return "Top 5%";
-    if (aggregateScore >= 75) return "Top 20%";
-    if (aggregateScore >= 60) return "Average";
-    return "Bottom Quartile";
+  // SV Radar Chart Helper functions
+  const degreesToRadians = (degrees: number) => degrees * (Math.PI / 180);
+  
+  const getPoint = (score: number, angleDeg: number, center: number, radius: number) => {
+    const rad = degreesToRadians(angleDeg - 90); // -90 so top is 0
+    const distance = radius * (Math.max(0, Math.min(100, score)) / 100);
+    return {
+      x: center + distance * Math.cos(rad),
+      y: center + distance * Math.sin(rad)
+    };
   };
+
+  const center = 150;
+  const radius = 100;
+  const numAxes = METRIC_LABELS.length;
+  const angleStep = 360 / numAxes;
+
+  const userPolygonPoints = metrics.map((m, i) => {
+    const pt = getPoint(m.score, i * angleStep, center, radius);
+    return `${pt.x},${pt.y}`;
+  }).join(' ');
+
+  const avgPolygonPoints = metrics.map((m, i) => {
+    const pt = getPoint(m.avg, i * angleStep, center, radius);
+    return `${pt.x},${pt.y}`;
+  }).join(' ');
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12 animate-fade-in pb-20">
+    <div className="max-w-5xl mx-auto space-y-12 animate-fade-in pb-20">
+      
       <div className="text-center space-y-4">
-        <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Global Benchmarks</h2>
-        <p className="text-gray-400 text-sm max-w-xl mx-auto italic">
-          Comparing your {industry} idea against 14,000+ anonymized audits in our database.
+        <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Competitive Benchmarks</h2>
+        <p className="text-gray-400 text-sm max-w-xl mx-auto">
+          How your idea stacks up against industry averages based on past audits.
         </p>
-      </div>
-
-      {/* Hero Metric */}
-      <div className="bg-black/40 border border-white/10 rounded-3xl p-10 text-center relative overflow-hidden flex flex-col items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-500/10 to-transparent pointer-events-none" />
-        <span className="text-[10px] uppercase font-black text-blue-400 tracking-widest block mb-4 relative z-10">Overall Viability</span>
-        <div className="flex items-end justify-center gap-4 relative z-10 mb-4">
-          <span className="text-8xl font-black text-white leading-none tracking-tighter">{aggregateScore}</span>
-          <span className="text-2xl font-bold text-gray-500 mb-2">/ 100</span>
-        </div>
-        <div className="inline-block px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full relative z-10">
-          <span className="text-sm font-bold text-blue-400">You are in the {getGlobalPercentile()} of audited {industry} ideas.</span>
+        <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-4 py-2 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+          <span className="text-[10px] text-blue-400 font-black uppercase tracking-widest">
+            {idea.industry || 'Default'} Layer Active (n={auditSampleCount > 2 ? auditSampleCount : 'Baseline'})
+          </span>
         </div>
       </div>
 
-      {/* Bar Charts */}
-      <div className="space-y-12 p-8 bg-white/5 border border-white/10 rounded-2xl">
-        <h3 className="text-lg font-black text-white uppercase tracking-widest mb-6">Dimensional Breakdown</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-black/40 border border-white/10 rounded-3xl p-8 shadow-xl">
         
-        {extractedMetrics.map((m, i) => (
-          <div key={i} className="space-y-4">
-            <div className="flex justify-between items-end">
-              <span className="text-xs font-bold text-gray-300 uppercase">{m.title}</span>
-              <div className="text-right">
-                <span className="text-xs font-black text-white block">{m.score}/100</span>
-                <span className="text-[10px] text-gray-500 uppercase font-bold">{getPercentileLabel(m.score)}</span>
-              </div>
-            </div>
+        {/* SVG Radar Chart */}
+        <div className="relative flex justify-center items-center w-full aspect-square max-w-[400px] mx-auto">
+          <svg viewBox="0 0 300 300" className="w-full h-full overflow-visible">
+            {/* Background Webs */}
+            {[20, 40, 60, 80, 100].map(level => {
+              const points = METRIC_LABELS.map((_, i) => {
+                const pt = getPoint(level, i * angleStep, center, radius);
+                return `${pt.x},${pt.y}`;
+              }).join(' ');
+              return <polygon key={level} points={points} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            })}
+
+            {/* Axes and Labels */}
+            {METRIC_LABELS.map((label, i) => {
+              const outerPt = getPoint(100, i * angleStep, center, radius);
+              // Slightly further out for text label
+              const textPt = getPoint(120, i * angleStep, center, radius);
+              return (
+                <g key={label}>
+                  <line x1={center} y1={center} x2={outerPt.x} y2={outerPt.y} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                  <text 
+                    x={textPt.x} y={textPt.y} 
+                    fill="rgba(255,255,255,0.5)" 
+                    fontSize="9" 
+                    fontWeight="bold"
+                    textAnchor="middle" 
+                    dominantBaseline="middle"
+                    className="uppercase tracking-widest"
+                  >
+                    {label}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Average Polygon */}
+            <polygon points={avgPolygonPoints} fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeDasharray="4 4" />
             
-            <div className="relative h-6 bg-black/60 rounded-full overflow-hidden border border-white/5">
-              {/* Average Marker */}
-              <div 
-                className="absolute top-0 bottom-0 w-1 bg-white/20 z-20"
-                style={{ left: `${m.avg}%` }}
-              >
-                <div className="absolute -top-7 -left-4 text-[8px] text-gray-500 font-black uppercase w-20 text-center">
-                  Avg: {m.avg}
-                </div>
-              </div>
+            {/* User Polygon */}
+            <polygon points={userPolygonPoints} fill="rgba(59, 130, 246, 0.2)" stroke="rgba(59, 130, 246, 0.8)" strokeWidth="3" />
+            
+            {/* User Points */}
+            {metrics.map((m, i) => {
+              const pt = getPoint(m.score, i * angleStep, center, radius);
+              return <circle key={i} cx={pt.x} cy={pt.y} r="4" fill="#3b82f6" />;
+            })}
+          </svg>
 
-              {/* User Score Bar */}
-              <div 
-                className={`h-full relative z-10 transition-all duration-1000 ${
-                  m.score >= 80 ? 'bg-green-500' : 
-                  m.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${m.score}%` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/10" />
-              </div>
+          {/* Legend */}
+          <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2 flex gap-4 bg-black/80 px-4 py-2 rounded-full border border-white/10">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-blue-500/50 border border-blue-500"></div>
+              <span className="text-[9px] uppercase font-black tracking-widest text-gray-400">Your Score</span>
             </div>
-
-            {/* Why This Score Callout */}
-            {m.score < 60 && m.reasoning && (
-              <div className="bg-red-500/5 border-l-2 border-red-500/30 p-4 mt-2 rounded-r-xl">
-                <span className="text-[10px] uppercase font-black text-red-400 tracking-widest block mb-1">Expert Alert: Low Score Diagnostic</span>
-                <p className="text-xs text-gray-400 leading-relaxed italic">
-                  "{m.reasoning.split('\n')[0].length > 150 ? m.reasoning.split('\n')[0].substring(0, 150) + '...' : m.reasoning.split('\n')[0]}"
-                </p>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded border border-white/30 border-dashed"></div>
+              <span className="text-[9px] uppercase font-black tracking-widest text-gray-400">Industry Avg</span>
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
 
-      <div className="p-6 bg-purple-500/10 border border-purple-500/20 rounded-xl text-center">
-        <span className="text-[10px] text-purple-400 font-black uppercase tracking-widest block mb-2">Notice</span>
-        <p className="text-xs text-gray-300">
-          This data is aggregated anonymously. Selection bias heavily skews toward high scores. A score of 60 is entirely respectable and represents an executable idea in the {industry} sector.
-        </p>
+        {/* Breakdown List */}
+        <div className="space-y-6">
+          {metrics.map((metric, i) => {
+             const deficit = metric.avg - metric.score;
+             const isWarning = deficit > 0;
+
+             return (
+              <div key={i} className={`p-5 rounded-2xl border transition-all ${isWarning ? 'bg-red-500/5 border-red-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
+                <div className="flex justify-between items-start mb-3">
+                  <h4 className="font-bold text-white text-sm uppercase tracking-wider">{metric.title}</h4>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-white leading-none">{metric.score}</div>
+                    <div className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isWarning ? 'text-red-400' : 'text-green-400'}`}>
+                      {isWarning ? `-${deficit} vs Avg` : `+${Math.abs(deficit)} vs Avg`}
+                    </div>
+                  </div>
+                </div>
+                
+                {metric.reasoning && (
+                  <p className="text-xs text-gray-400 leading-relaxed mb-4 line-clamp-2">"{metric.reasoning}"</p>
+                )}
+
+                {/* Action Plan Section */}
+                {metric.score < 60 && (
+                  <div className="pt-4 border-t border-white/10">
+                    {metric.actionPlan ? (
+                      <div className="bg-blue-500/10 border-l-2 border-blue-500 p-3">
+                        <span className="text-[9px] uppercase font-black text-blue-400 tracking-widest block mb-1">Tactical Fix</span>
+                        <p className="text-xs text-blue-200/90 font-bold leading-relaxed">{metric.actionPlan}</p>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => getActionPlan(i)}
+                        disabled={metric.loadingAction}
+                        className="text-[10px] uppercase font-black tracking-widest text-blue-400 hover:text-blue-300 disabled:opacity-50 transition-colors flex items-center gap-2"
+                      >
+                        {metric.loadingAction ? 'Analyzing...' : '⚡ Get Action Plan to Fix'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+             );
+          })}
+        </div>
+
       </div>
     </div>
   );

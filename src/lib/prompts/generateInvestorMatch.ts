@@ -10,6 +10,7 @@ IDEA:
 Name: ${idea.name}
 Industry: ${idea.industry || 'Not specified'}
 Stage: ${idea.stage || 'Idea'}
+Budget/Ask: ${idea.budget || 'Unknown'}
 Target Audience: ${idea.targetAudience}
 
 AUDIT:
@@ -23,9 +24,9 @@ EXPERT DATA (use these for specific matchmaking):
 - Financial Projections (p6): ${JSON.stringify(rawData?.p6?.result || 'Not available')}
 
 TASK:
-1. Identify the Exact Archetypes of investors (e.g., "Deep tech early believers", "B2B SaaS metric-obsessed Series A funds").
+1. Identify the Exact Archetypes of investors (e.g., "Deep tech early believers", "B2B SaaS metric-obsessed Series A funds"). Make sure they match the founder's STAGE and BUDGET. Do not recommend growth funds to a pre-seed founder.
 2. Give 2-3 examples of real-world firms/angels for each archetype.
-3. For each archetype, provide a 3-sentence Cold Email Template that resonates with their specific investment thesis.
+3. For each archetype, provide a 3-sentence Cold Email Template. This template MUST USE REAL VARIABLES from the data provided. Use the actual product name, actual market size numbers, and actual metrics. No generic blanks like "[Metric]".
 4. List the 3 most brutal questions they will ask.
 5. Provide a "Recommended Answer Framework" for each question to help the founder survive.
 
@@ -37,7 +38,7 @@ OUTPUT JSON FORMAT:
       "whatTheyCareAbout": "One sentence on what drives them.",
       "exampleFirms": ["Sequoia", "a16z"],
       "fitScore": 85,
-      "coldEmailTemplate": "Hi [Name], I'm building [Name]... [The Hook]... [The Ask]"
+      "coldEmailTemplate": "Hi [Name], I'm building SuperApp. We are attacking a $2B SAM with a 40% margin model... [The Ask]"
     }
   ],
   "brutalQuestions": [

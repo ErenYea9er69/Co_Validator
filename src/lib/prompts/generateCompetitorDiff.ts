@@ -18,8 +18,15 @@ OUTPUT JSON FORMAT:
 {
   "status": "Threat Level Increased" | "Threat Level Decreased" | "No Meaningful Change",
   "intelSummary": "2-3 brutal sentences explaining exactly what changed and why it matters.",
-  "newFeaturesOrPricing": "List any specific new capabilities or pricing tiers mentioned, or 'None found'.",
-  "fundingOrMNA": "Any details on them raising money or being acquired."
+  "strategicImplication": "What exactly should the founder DO about this? (e.g., 'Acceleration required: their new lower tier undercuts your margin, shift focus to enterprise').",
+  "pricingTiers": [
+    {
+      "tier": "Name of tier (e.g., Free, Pro)",
+      "price": "$0/mo",
+      "limits": "Key limits or features (e.g., 5 users, no API)"
+    }
+  ],
+  "fundingOrMNA": "Any details on them raising money or being acquired. Or 'None found'."
 }
 `;
 

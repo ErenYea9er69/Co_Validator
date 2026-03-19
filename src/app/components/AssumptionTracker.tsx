@@ -9,12 +9,12 @@ interface AssumptionTrackerProps {
 }
 
 const EVIDENCE_TYPES = [
-  { value: 'revenue', label: 'Revenue Data', weight: '💰 Strongest' },
-  { value: 'signup', label: 'Signup Metric', weight: '📊 Strong' },
-  { value: 'interview', label: 'Interview Quote', weight: '🎙️ Moderate' },
-  { value: 'survey', label: 'Survey Result', weight: '📋 Weak-Moderate' },
-  { value: 'rejection', label: 'Rejection Signal', weight: '🔴 Negative' },
-  { value: 'other', label: 'Other', weight: '❓ Context-dependent' },
+  { value: 'revenue', label: 'Revenue Data', baseWeight: 35, icon: '💰' },
+  { value: 'signup', label: 'Signup Metric', baseWeight: 20, icon: '📊' },
+  { value: 'interview', label: 'Interview Quote', baseWeight: 10, icon: '🎙️' },
+  { value: 'survey', label: 'Survey Result', baseWeight: 5, icon: '📋' },
+  { value: 'rejection', label: 'Rejection Signal', baseWeight: -15, icon: '🔴' },
+  { value: 'other', label: 'Other', baseWeight: 5, icon: '❓' },
 ] as const;
 
 interface Evidence {
@@ -29,11 +29,16 @@ interface Assumption {
   status: 'unvalidated' | 'testing' | 'validated' | 'killed';
   confidence: number;
   evidence: Evidence[];
+  aiSuggestion?: {
+    nextBestTest: string;
+    whyItMatters: string;
+  };
 }
 
 export default function AssumptionTracker({ idea, auditResult, onRescoreComplete }: AssumptionTrackerProps) {
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [suggestingForId, setSuggestingForId] = useState<string | null>(null);
   const [rescoreResult, setRescoreResult] = useState<any>(null);
   const [newEvidenceInput, setNewEvidenceInput] = useState<{ [id: string]: string }>({});
   const [newEvidenceType, setNewEvidenceType] = useState<{ [id: string]: string }>({});
@@ -49,16 +54,13 @@ export default function AssumptionTracker({ idea, auditResult, onRescoreComplete
     }
 
     if (auditResult?.criticalAssumptionStack) {
-      const initial = auditResult.criticalAssumptionStack.map((item: any, i: number) => {
-        const text = typeof item === 'string' ? item : (item.assumption || JSON.stringify(item));
-        return {
-          id: `assume-${i}`,
-          text,
-          status: 'unvalidated',
-          confidence: 0,
-          evidence: []
-        };
-      });
+      const initial = auditResult.criticalAssumptionStack.map((a: any, i: number) => ({
+        id: `assump-${i}`,
+        text: typeof a === 'string' ? a : a.assumption || a.text,
+        status: 'unvalidated',
+        confidence: 0,
+        evidence: []
+      }));
       setAssumptions(initial);
     }
   }, [auditResult]);
@@ -69,241 +71,310 @@ export default function AssumptionTracker({ idea, auditResult, onRescoreComplete
     }
   }, [assumptions]);
 
-  const calcConfidence = (evidence: Evidence[]): number => {
-    if (evidence.length === 0) return 0;
-    const weights: Record<string, number> = {
-      revenue: 30, signup: 22, interview: 15, survey: 10, rejection: -15, other: 8
-    };
-    let score = 0;
-    evidence.forEach(e => { score += weights[e.type] || 8; });
-    return Math.max(0, Math.min(100, score));
+  const calcConfidenceWithDiminishingReturns = (evidence: Evidence[]): number => {
+    let conf = 0;
+    const counts: Record<string, number> = {};
+    
+    // Sort chronological mostly so earlier evidence gets full weight
+    const sortedEvidence = [...evidence].reverse(); // oldest first roughly if added sequentially
+
+    for (const e of sortedEvidence) {
+      const typeDef = EVIDENCE_TYPES.find(t => t.value === e.type);
+      if (!typeDef) continue;
+      
+      counts[e.type] = (counts[e.type] || 0) + 1;
+      const count = counts[e.type];
+      
+      // Diminishing returns: 100% -> 50% -> 25% -> 10%
+      let multiplier = 1;
+      if (count === 2) multiplier = 0.5;
+      if (count === 3) multiplier = 0.25;
+      if (count >= 4) multiplier = 0.1;
+      
+      conf += typeDef.baseWeight * multiplier;
+    }
+
+    return Math.max(0, Math.min(100, Math.round(conf)));
   };
 
-  const handleAddEvidence = (id: string) => {
-    const text = newEvidenceInput[id]?.trim();
+  const addEvidence = (id: string) => {
+    const text = newEvidenceInput[id];
     const type = newEvidenceType[id] || 'other';
-    if (!text) return;
+    if (!text || !text.trim()) return;
 
     setAssumptions(prev => prev.map(a => {
       if (a.id === id) {
-        const updatedEvidence = [...a.evidence, { text, type, date: new Date().toLocaleDateString() }];
+        const newEvidenceList = [{ text, type, date: new Date().toISOString() }, ...a.evidence];
+        const newConf = calcConfidenceWithDiminishingReturns(newEvidenceList);
         return {
           ...a,
-          evidence: updatedEvidence,
-          confidence: calcConfidence(updatedEvidence),
-          status: a.status === 'unvalidated' ? 'testing' : a.status
+          evidence: newEvidenceList,
+          confidence: newConf,
+          status: newConf > 75 ? 'validated' : newConf < 20 && newEvidenceList.length > 2 ? 'killed' : 'testing'
         };
       }
       return a;
     }));
 
     setNewEvidenceInput(prev => ({ ...prev, [id]: '' }));
-    setNewEvidenceType(prev => ({ ...prev, [id]: 'other' }));
+    setNewEvidenceType(prev => ({ ...prev, [id]: 'revenue' }));
   };
 
-  const handleStatusChange = (id: string, newStatus: any) => {
-    setAssumptions(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
-  };
+  const requestSuggestion = async (id: string) => {
+    const assumption = assumptions.find(a => a.id === id);
+    if (!assumption) return;
 
-  const triggerRescore = async () => {
-    setLoading(true);
+    setSuggestingForId(id);
     try {
       const token = localStorage.getItem('AUDIT_SECRET') || undefined;
+      const res = await actions.getEvidenceSuggestion(
+        { text: assumption.text, status: assumption.status, confidence: assumption.confidence },
+        assumption.evidence,
+        token
+      );
+      
+      if (res.result) {
+        setAssumptions(prev => prev.map(a => 
+          a.id === id ? { ...a, aiSuggestion: res.result } : a
+        ));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to get suggestion.");
+    } finally {
+      setSuggestingForId(null);
+    }
+  };
+
+  const runRescore = async () => {
+    setLoading(true);
+    setRescoreResult(null);
+    try {
+      const token = localStorage.getItem('AUDIT_SECRET') || undefined;
+      
       const evidenceLog = assumptions.map(a => ({
         assumption: a.text,
-        status: a.status,
-        confidence: a.confidence,
-        evidence: a.evidence.map(e => ({ type: e.type, content: e.text }))
+        evidence: a.evidence.map(e => `[${e.type}] ${e.text} (${new Date(e.date).toLocaleDateString()})`).join(' | ') || 'None'
       }));
 
       const res = await actions.rescoreAudit(idea, auditResult, evidenceLog, token);
       if (res.result) {
         setRescoreResult(res.result);
-
-        // Update per-assumption confidence from AI response
         if (res.result.confidencePerAssumption) {
-          setAssumptions(prev => prev.map((a, i) => {
-            const aiConf = res.result.confidencePerAssumption[i];
-            return aiConf ? { ...a, confidence: aiConf.confidence } : a;
+          setAssumptions(prev => prev.map(a => {
+            const aiData = res.result.confidencePerAssumption.find((ca: any) => 
+              a.text.includes(ca.assumption) || ca.assumption.includes(a.text)
+            );
+            if (aiData) {
+              return { ...a, confidence: aiData.confidence };
+            }
+            return a;
           }));
         }
-
-        // Propagate to parent so the entire app reflects the new verdict
         if (onRescoreComplete) {
-          onRescoreComplete({
-            ...auditResult,
-            verdict: res.result.newVerdict,
-            coreBet: res.result.updatedCoreBet,
-            criticalAssumptionStack: res.result.updatedAssumptions
-          });
+          onRescoreComplete({ ...auditResult, verdict: res.result.newVerdict, coreBet: res.result.updatedCoreBet, evidenceStatus: 'rescored' });
         }
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to rescore.");
+      alert("Failed to re-score audit.");
     } finally {
       setLoading(false);
     }
   };
 
-  const getTypeLabel = (type: string) => EVIDENCE_TYPES.find(t => t.value === type)?.label || type;
-  const getTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      revenue: 'text-green-400', signup: 'text-blue-400', interview: 'text-yellow-400',
-      survey: 'text-orange-400', rejection: 'text-red-400', other: 'text-gray-400'
-    };
-    return colors[type] || 'text-gray-400';
+  const clearRecords = () => {
+    if (confirm("Reset all validation records?")) {
+      localStorage.removeItem('co-validator-assumptions');
+      window.location.reload();
+    }
   };
 
-  if (assumptions.length === 0) return <div className="text-center text-gray-500 py-20">No assumptions found in this audit.</div>;
+  const CircularProgress = ({ value }: { value: number }) => {
+    const radius = 24;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (value / 100) * circumference;
+    const color = value > 75 ? 'text-green-500' : value > 40 ? 'text-yellow-500' : 'text-red-500';
+    return (
+      <div className="relative flex items-center justify-center">
+        <svg className="w-16 h-16 transform -rotate-90">
+          <circle cx="32" cy="32" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" className="text-white/10" />
+          <circle 
+            cx="32" cy="32" r={radius} 
+            stroke="currentColor" strokeWidth="6" fill="transparent" 
+            strokeDasharray={circumference} strokeDashoffset={offset} 
+            strokeLinecap="round" className={`${color} transition-all duration-1000 ease-out`} 
+          />
+        </svg>
+        <div className="absolute flex flex-col items-center justify-center">
+          <span className="text-xs font-black text-white">{value}</span>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12 animate-fade-in pb-20">
+    <div className="max-w-4xl mx-auto space-y-12 animate-fade-in pb-20">
       <div className="text-center space-y-4">
         <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Live Tracker</h2>
         <p className="text-gray-400 text-sm max-w-xl mx-auto">
-          Ideas aren't validated in Notion docs. They are validated in the market. Log structured field evidence against the critical assumption stack here.
+          Ideas are guilty until proven innocent. Log structured evidence against your critical assumptions. The algorithm uses diminishing returns — 3 surveys matter less than 1 sale.
         </p>
+        <div className="flex justify-center gap-4 pt-4">
+          <button 
+            onClick={runRescore}
+            disabled={loading}
+            className="px-8 py-3 bg-white text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all disabled:opacity-50 shadow-[0_0_30px_rgba(255,255,255,0.1)]"
+          >
+            {loading ? 'Auditing Evidence...' : 'Re-Score Master Audit'}
+          </button>
+          <button onClick={clearRecords} className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] uppercase rounded-xl transition-all">
+            Clear Logs
+          </button>
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {assumptions.map(a => (
-          <div key={a.id} className="bg-black/40 border border-white/10 rounded-2xl flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-white/5 space-y-4 flex-grow">
-              {/* Header: Status + Confidence Ring + Dropdown */}
-              <div className="flex justify-between items-start gap-4">
-                <div className="flex items-center gap-3">
-                  {/* Confidence Ring */}
-                  <div className="relative w-12 h-12 flex-shrink-0">
-                    <svg className="w-12 h-12 -rotate-90" viewBox="0 0 44 44">
-                      <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
-                      <circle cx="22" cy="22" r="18" fill="none"
-                        stroke={a.confidence >= 70 ? '#22c55e' : a.confidence >= 40 ? '#eab308' : '#ef4444'}
-                        strokeWidth="4" strokeLinecap="round"
-                        strokeDasharray={`${(a.confidence / 100) * 113} 113`}
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white">
-                      {a.confidence}
-                    </span>
-                  </div>
-                  <span className={`px-3 py-1 text-[10px] font-black uppercase rounded-full ${
-                    a.status === 'validated' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                    a.status === 'killed' ? 'bg-red-500/20 text-red-500 border border-red-500/30' :
-                    a.status === 'testing' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
-                    'bg-white/10 text-gray-400 border border-white/10'
-                  }`}>
-                    {a.status}
-                  </span>
-                </div>
-                <select
-                  value={a.status}
-                  onChange={(e) => handleStatusChange(a.id, e.target.value)}
-                  className="bg-transparent text-xs text-gray-500 cursor-pointer outline-none hover:text-white transition-colors"
-                >
-                  <option value="unvalidated">Unvalidated</option>
-                  <option value="testing">Testing</option>
-                  <option value="validated">Validated</option>
-                  <option value="killed">Killed</option>
-                </select>
-              </div>
-              <p className="text-white font-bold leading-relaxed">{a.text}</p>
+      {rescoreResult && (
+        <div className="bg-black border border-white/20 p-8 rounded-2xl animate-slide-up shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 blur-3xl rounded-full -mr-20 -mt-20 pointer-events-none" />
+          <div className="relative z-10 space-y-6">
+            <h3 className="text-[10px] uppercase font-black text-blue-400 tracking-widest">Re-Score Analysis</h3>
+            <div className="flex items-center gap-4">
+              <span className={`px-4 py-2 text-xs font-black uppercase rounded border tracking-widest ${
+                rescoreResult.newVerdict === 'Greenlit for Testing' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                rescoreResult.newVerdict === 'Pivot Required' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 
+                'bg-red-500/10 text-red-500 border-red-500/20'
+              }`}>
+                Verdict: {rescoreResult.newVerdict}
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-300 italic p-4 bg-white/5 rounded-xl border border-white/5">
+              "{rescoreResult.evidenceAnalysis}"
+            </p>
+          </div>
+        </div>
+      )}
 
-              {a.evidence.length > 0 && (
-                <div className="space-y-3 mt-4 pt-4 border-t border-white/5">
-                  <span className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Evidence Log</span>
-                  {a.evidence.map((ev, i) => (
-                    <div key={i} className="bg-white/5 p-3 rounded-xl border border-white/5 text-sm text-gray-300">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] font-black uppercase ${getTypeColor(ev.type)}`}>{getTypeLabel(ev.type)}</span>
-                        <span className="text-[10px] text-gray-600">·</span>
-                        <span className="text-[10px] text-gray-600">{ev.date}</span>
-                      </div>
-                      {ev.text}
+      <div className="space-y-6">
+        {assumptions.map((assump) => (
+          <div key={assump.id} className="bg-black/40 border border-white/10 rounded-3xl overflow-hidden hover:border-white/20 transition-all focus-within:border-white/30 shadow-xl">
+            {/* Header Area */}
+            <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 md:items-center">
+              <CircularProgress value={assump.confidence} />
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded ${
+                    assump.status === 'validated' ? 'bg-green-500/20 text-green-400' :
+                    assump.status === 'killed' ? 'bg-red-500/20 text-red-400' :
+                    assump.status === 'testing' ? 'bg-blue-500/20 text-blue-400' :
+                    'bg-white/10 text-gray-400'
+                  }`}>
+                    {assump.status}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500">Log Count: {assump.evidence.length}</span>
+                </div>
+                <h3 className="text-lg md:text-xl font-bold text-white leading-tight">{assump.text}</h3>
+              </div>
+            </div>
+            
+            <div className="px-6 md:px-8 pb-6 border-b border-white/5">
+               {/* Timeline Viusalization */}
+              {assump.evidence.length > 0 && (
+                <div className="flex gap-2 items-center mb-6 overflow-x-auto hide-scrollbar">
+                  <span className="text-[9px] uppercase font-black text-gray-600 tracking-widest shrink-0 mr-2">Timeline</span>
+                  {assump.evidence.map((e, idx) => (
+                    <div key={idx} className="flex flex-col items-center group shrink-0 relative">
+                      <div className="w-2 h-2 rounded-full bg-white/20 group-hover:bg-blue-400 transition-colors" />
+                      <div className="h-0.5 w-4 bg-white/5 my-1" />
+                      <span className="text-[8px] text-gray-600">{new Date(e.date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}</span>
                     </div>
                   ))}
+                  <div className="h-0.5 flex-1 bg-white/5 ml-2" />
                 </div>
               )}
-            </div>
 
-            {/* Evidence Input */}
-            <div className="p-4 bg-white/5 border-t border-white/10 space-y-2">
-              <div className="flex gap-2">
-                <select
-                  value={newEvidenceType[a.id] || 'other'}
-                  onChange={(e) => setNewEvidenceType(prev => ({ ...prev, [a.id]: e.target.value }))}
-                  className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:border-purple-500/50"
+              {/* Input Area */}
+              <div className="flex flex-col md:flex-row gap-3">
+                <select 
+                  value={newEvidenceType[assump.id] || ''}
+                  onChange={(e) => setNewEvidenceType(prev => ({ ...prev, [assump.id]: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-xs text-white uppercase font-bold tracking-wider outline-none focus:border-blue-500"
                 >
+                  <option value="" disabled>Select Evidence Type</option>
                   {EVIDENCE_TYPES.map(t => (
-                    <option key={t.value} value={t.value}>{t.weight} {t.label}</option>
+                    <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
                   ))}
                 </select>
+                <div className="flex-1 flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newEvidenceInput[assump.id] || ''} 
+                    onChange={(e) => setNewEvidenceInput(prev => ({ ...prev, [assump.id]: e.target.value }))}
+                    placeholder="e.g., '15 users paid $10 deposit...'"
+                    className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+                    onKeyDown={(e) => e.key === 'Enter' && addEvidence(assump.id)}
+                  />
+                  <button 
+                    onClick={() => addEvidence(assump.id)}
+                    disabled={!newEvidenceInput[assump.id]}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg"
+                  >
+                    Log
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Log evidence (e.g. '3 users pre-paid $50')..."
-                  value={newEvidenceInput[a.id] || ''}
-                  onChange={(e) => setNewEvidenceInput(prev => ({ ...prev, [a.id]: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddEvidence(a.id)}
-                  className="flex-grow bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
-                />
-                <button
-                  onClick={() => handleAddEvidence(a.id)}
-                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs uppercase rounded-xl transition-all"
+            </div>
+
+            {/* AI Suggestion Area */}
+            {assump.aiSuggestion ? (
+              <div className="bg-blue-500/10 border-t border-blue-500/20 p-6 flex gap-4 items-start">
+                <span className="text-2xl mt-1">🤖</span>
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase font-black text-blue-400 tracking-widest block">AI Strategy Suggestion</span>
+                  <p className="text-sm font-bold text-white leading-relaxed">{assump.aiSuggestion.nextBestTest}</p>
+                  <p className="text-xs text-blue-200/60">{assump.aiSuggestion.whyItMatters}</p>
+                  <button onClick={() => setAssumptions(prev => prev.map(a => a.id === assump.id ? { ...a, aiSuggestion: undefined } : a))} className="text-[10px] text-blue-400 hover:underline mt-2">Dismiss</button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/5 border-t border-white/5 px-6 py-3 flex justify-between items-center">
+                <span className="text-[10px] text-gray-500 font-bold">Stuck on proving this?</span>
+                <button 
+                  disabled={suggestingForId === assump.id}
+                  onClick={() => requestSuggestion(assump.id)} 
+                  className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
                 >
-                  Log
+                  {suggestingForId === assump.id ? 'Thinking...' : '⚡ Suggest Next Test'}
                 </button>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            )}
 
-      <div className="max-w-2xl mx-auto text-center space-y-6 pt-12 border-t border-white/10">
-        <h3 className="text-2xl font-black text-white uppercase">Re-Score Audit</h3>
-        <p className="text-gray-400 text-sm">
-          Once you have gathered enough evidence, submit it to the AI for a re-scoring. It will determine if the Stop Signal has been cleared.
-        </p>
-        <button
-          onClick={triggerRescore}
-          disabled={loading}
-          className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg transition-all disabled:opacity-50"
-        >
-          {loading ? 'Analyzing Evidence...' : 'Submit Evidence & Re-Score'}
-        </button>
-
-        {rescoreResult && (
-          <div className="mt-8 p-8 bg-black/60 border border-green-500/30 rounded-3xl animate-slide-up text-left space-y-6">
-            <div className="flex justify-between items-center border-b border-white/10 pb-6">
-              <div>
-                <span className="text-[10px] uppercase font-black text-green-400 tracking-widest block mb-1">New Verdict</span>
-                <span className="text-3xl font-black text-white uppercase">{rescoreResult.newVerdict}</span>
-              </div>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-black text-purple-400 tracking-widest block mb-2">Evidence Analysis</span>
-              <p className="text-gray-300 leading-relaxed">{rescoreResult.evidenceAnalysis}</p>
-            </div>
-            {rescoreResult.confidencePerAssumption && (
-              <div className="space-y-3">
-                <span className="text-[10px] uppercase font-black text-blue-400 tracking-widest block mb-2">Per-Assumption Confidence</span>
-                {rescoreResult.confidencePerAssumption.map((c: any, i: number) => (
-                  <div key={i} className="flex items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
-                    <span className={`text-lg font-black ${c.confidence >= 70 ? 'text-green-400' : c.confidence >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                      {c.confidence}%
-                    </span>
-                    <span className="text-xs text-gray-400">{c.reasoning}</span>
-                  </div>
-                ))}
+            {/* Evidence Log List */}
+            {assump.evidence.length > 0 && (
+              <div className="p-6 bg-black/60 border-t border-white/5">
+                <div className="space-y-3">
+                  {assump.evidence.map((e, idx) => {
+                    const typeDef = EVIDENCE_TYPES.find(t => t.value === e.type);
+                    return (
+                      <div key={idx} className="flex items-start gap-4 p-4 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-colors group">
+                        <div className="flex flex-col items-center gap-1 min-w-[32px]">
+                          <span className="text-xl" title={typeDef?.label}>{typeDef?.icon || '❓'}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] uppercase font-black text-white/50">{typeDef?.label || e.type}</span>
+                            <span className="text-[9px] text-gray-600 bg-black/40 px-1.5 py-0.5 rounded">{new Date(e.date).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-sm text-gray-300 leading-relaxed break-words">{e.text}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
-            <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-              <span className="text-[10px] uppercase font-black text-blue-400 tracking-widest block mb-1">Updated Core Bet</span>
-              <p className="text-lg text-white font-bold">"{rescoreResult.updatedCoreBet}"</p>
-            </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

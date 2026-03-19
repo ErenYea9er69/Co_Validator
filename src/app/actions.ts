@@ -25,9 +25,15 @@ import { generateSprintPlan } from '@/lib/prompts/generateSprintPlan';
 import { rescoreWithEvidence } from '@/lib/prompts/rescoreAudit';
 import { generateCompetitorDiff } from '@/lib/prompts/generateCompetitorDiff';
 import { generatePitchDeck } from '@/lib/prompts/generatePitchDeck';
+import { rewritePitchSlide } from '@/lib/prompts/rewriteSlide';
 import { generateInvestorMatch } from '@/lib/prompts/generateInvestorMatch';
+import { gradeTaskOutcome as gradeTaskPrompt } from '@/lib/prompts/gradeTask';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
-import { stressTestSimulation } from '@/lib/prompts/stressTest';
+import { suggestPivots } from '@/lib/prompts/suggestPivots';
+import { stressTestSimulation as stressTestSimulationPrompt } from '@/lib/prompts/stressTest';
+import { suggestNextEvidence } from '@/lib/prompts/suggestEvidence';
+import { generateMetricAction } from '@/lib/prompts/generateMetricAction';
+import { gradePitchAnswer as gradePitchAnswerPrompt } from '@/lib/prompts/gradePitchAnswer';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 function checkAuth(token?: string) {
@@ -181,20 +187,38 @@ export async function finalizeAudit(idea: any, researchContext: string, interrog
 
 export async function runStressTest(idea: any, change: string, auditSummary: { assumptions: any; reasoning: string }, token?: string) {
   checkAuth(token);
-  const raw = await stressTestSimulation(JSON.stringify(idea), change, JSON.stringify(auditSummary));
+  const raw = await stressTestSimulationPrompt(JSON.stringify(idea), change, JSON.stringify(auditSummary));
   return { result: safeJsonParse(raw), usage: {} };
 }
 
-export async function runSprintPlan(idea: any, auditResult: any, token?: string, previousWeekSummary?: string) {
+export async function runSprintPlan(idea: any, auditResult: any, previousWeekSummary?: string, rawData?: any, token?: string) {
   checkAuth(token);
-  const raw = await generateSprintPlan(idea, auditResult, previousWeekSummary);
+  const raw = await generateSprintPlan(idea, auditResult, rawData, previousWeekSummary);
   return { result: safeJsonParse(raw, {}, 'Sprint Plan'), raw };
+}
+
+export async function gradeSprintTask(taskTitle: string, gradingCriteria: string, founderOutcome: string, token?: string) {
+  checkAuth(token);
+  const raw = await gradeTaskPrompt(taskTitle, gradingCriteria, founderOutcome);
+  return { result: safeJsonParse(raw, {}, 'Task Grader'), raw };
 }
 
 export async function rescoreAudit(idea: any, originalAudit: any, evidenceLog: any[], token?: string) {
   checkAuth(token);
   const raw = await rescoreWithEvidence(JSON.stringify(idea), JSON.stringify(originalAudit), JSON.stringify(evidenceLog));
   return { result: safeJsonParse(raw, {}, 'Rescore Audit'), raw };
+}
+
+export async function getEvidenceSuggestion(assumptionGroup: any, recentEvidence: any[], token?: string) {
+  checkAuth(token);
+  const raw = await suggestNextEvidence(assumptionGroup, recentEvidence);
+  return { result: safeJsonParse(raw, {}, 'Suggest Evidence'), raw };
+}
+
+export async function getMetricActionAdvice(metricTitle: string, userScore: number, reasoning: string, industry: string, token?: string) {
+  checkAuth(token);
+  const raw = await generateMetricAction(metricTitle, userScore, reasoning, industry);
+  return { result: safeJsonParse(raw, {}, 'Metric Action'), raw };
 }
 
 export async function refreshCompetitorIntel(competitorName: string, competitorDescription: string, token?: string) {
@@ -220,8 +244,32 @@ export async function createPitchDeck(idea: any, auditResult: any, rawData?: any
   return { result: safeJsonParse(raw, {}, 'Pitch Deck'), raw };
 }
 
+export async function rewriteSingleSlide(ideaContext: string, currentSlide: any, founderFeedback: string, token?: string) {
+  checkAuth(token);
+  const raw = await rewritePitchSlide(ideaContext, currentSlide, founderFeedback);
+  return { result: safeJsonParse(raw, {}, 'Rewrite Slide'), raw };
+}
+
+export async function stressTestSimulation(ideaStr: string, changeStr: string, auditSummaryStr: string, token?: string) {
+  checkAuth(token);
+  const raw = await stressTestSimulationPrompt(ideaStr, changeStr, auditSummaryStr);
+  return { result: safeJsonParse(raw, {}, 'Stress Test'), raw };
+}
+
 export async function matchInvestors(idea: any, auditResult: any, rawData?: any, token?: string) {
   checkAuth(token);
   const raw = await generateInvestorMatch(idea, auditResult, rawData);
   return { result: safeJsonParse(raw, {}, 'Investor Match'), raw };
+}
+
+export async function getSuggestedPivots(ideaStr: string, auditSummaryStr: string, token?: string) {
+  checkAuth(token);
+  const raw = await suggestPivots(ideaStr, auditSummaryStr);
+  return { result: safeJsonParse(raw, {}, 'Suggest Pivots'), raw };
+}
+
+export async function gradeFounderAnswer(question: string, founderAnswer: string, token?: string) {
+  checkAuth(token);
+  const raw = await gradePitchAnswerPrompt(question, founderAnswer);
+  return { result: safeJsonParse(raw, {}, 'Grade Answer'), raw };
 }

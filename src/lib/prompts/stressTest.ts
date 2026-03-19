@@ -29,7 +29,15 @@ OUTPUT JSON FORMAT:
   "chainReactionOfFailure": "Detailed analysis of how this pivot ripples through the business model.", 
   "ultimateBottleneck": "The single biggest risk in this new direction.",
   "newScore": 72,
-  "logic": "Brief reasoning for the new score"
+  "logic": "Brief reasoning for the new score",
+  "assumptionDeltas": [
+    {
+      "assumption": "The core assumption (e.g., 'SMBs will pay for this')",
+      "riskBefore": "High",
+      "riskAfter": "Low",
+      "reasoning": "Why the risk changed."
+    }
+  ]
 }
 
 Be brutally honest. If the pivot is into a crowded market with no moat, the score should drop.

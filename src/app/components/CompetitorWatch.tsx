@@ -7,26 +7,36 @@ interface CompetitorWatchProps {
   rawData: any;
 }
 
+type ThreatStatus = 'Threat Level Increased' | 'Threat Level Decreased' | 'No Meaningful Change' | 'Unknown';
+
+interface PricingTier {
+  tier: string;
+  price: string;
+  limits: string;
+}
+
+interface ThreatHistory {
+  date: string;
+  status: ThreatStatus;
+}
+
 interface CompetitorIntel {
   name: string;
   moat: string;
   weakness: string;
-  status: 'Threat Level Increased' | 'Threat Level Decreased' | 'No Meaningful Change' | 'Unknown';
+  status: ThreatStatus;
   intelSummary: string;
-  newFeaturesOrPricing: string;
+  strategicImplication?: string;
+  pricingTiers?: PricingTier[];
   fundingOrMNA: string;
   lastChecked: string;
-  previousIntel?: {
-    status: string;
-    intelSummary: string;
-    newFeaturesOrPricing: string;
-    fundingOrMNA: string;
-  };
+  history: ThreatHistory[];
 }
 
 export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps) {
   const [competitors, setCompetitors] = useState<CompetitorIntel[]>([]);
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
+  const [scanningAll, setScanningAll] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('co-validator-competitor-intel');
@@ -45,9 +55,11 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
         weakness: c.weakness || 'Unknown',
         status: 'Unknown',
         intelSummary: 'Click "Refresh Intel" to run a live web search for recent changes.',
-        newFeaturesOrPricing: 'Unknown',
+        strategicImplication: '',
+        pricingTiers: [],
         fundingOrMNA: 'Unknown',
-        lastChecked: 'Never'
+        lastChecked: 'Never',
+        history: [{ date: new Date().toISOString(), status: 'Unknown' as ThreatStatus }]
       }));
       setCompetitors(initial);
     }
@@ -59,157 +71,220 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
     }
   }, [competitors]);
 
-  const performRefresh = async (index: number) => {
+  const refreshIntel = async (index: number) => {
+    setLoadingIndex(index);
     try {
       const token = localStorage.getItem('AUDIT_SECRET') || undefined;
       const comp = competitors[index];
-      const description = `${comp.moat} ${comp.weakness}`;
-      const res = await actions.refreshCompetitorIntel(comp.name, description, token);
+      const desc = `Competitor in the ${idea.industry || 'same'} space. Their known moat is: ${comp.moat}.`;
+      
+      const res = await actions.refreshCompetitorIntel(comp.name, desc, token);
       
       if (res.result) {
         setCompetitors(prev => {
           const next = [...prev];
-          const current = next[index];
-          
-          const previousIntel = {
-            status: current.status,
-            intelSummary: current.intelSummary,
-            newFeaturesOrPricing: current.newFeaturesOrPricing,
-            fundingOrMNA: current.fundingOrMNA
-          };
+          const old = next[index];
+
+          // Store history (max 5 items)
+          const newHistory = [...(old.history || [])];
+          // Don't add if it's identical status on the same day to avoid spamming dots
+          const todayStr = new Date().toDateString();
+          const lastHistory = newHistory[newHistory.length - 1];
+          if (!(lastHistory && new Date(lastHistory.date).toDateString() === todayStr && lastHistory.status === res.result.status)) {
+             newHistory.push({ date: new Date().toISOString(), status: res.result.status || 'Unknown' });
+             if (newHistory.length > 5) newHistory.shift();
+          }
 
           next[index] = {
-            ...current,
+            ...old,
             status: res.result.status || 'Unknown',
-            intelSummary: res.result.intelSummary || 'No summary available.',
-            newFeaturesOrPricing: res.result.newFeaturesOrPricing || 'None found',
-            fundingOrMNA: res.result.fundingOrMNA || 'None found',
-            lastChecked: new Date().toLocaleString(),
-            previousIntel: current.status !== 'Unknown' ? previousIntel : undefined
+            intelSummary: res.result.intelSummary || old.intelSummary,
+            strategicImplication: res.result.strategicImplication || '',
+            pricingTiers: Array.isArray(res.result.pricingTiers) ? res.result.pricingTiers : [],
+            fundingOrMNA: res.result.fundingOrMNA || old.fundingOrMNA,
+            lastChecked: new Date().toISOString(),
+            history: newHistory
           };
           return next;
         });
       }
     } catch (err) {
       console.error(err);
+      alert(`Failed to refresh intel for ${competitors[index].name}`);
+    } finally {
+      setLoadingIndex(null);
     }
   };
 
-  const refreshIntel = async (index: number) => {
-    if (loadingIndex !== null) return;
-    setLoadingIndex(index);
-    await performRefresh(index);
-    setLoadingIndex(null);
-  };
-
   const scanAll = async () => {
-    if (loadingIndex !== null) return;
-    setLoadingIndex(-1);
-    await Promise.all(competitors.map((_, i) => performRefresh(i)));
-    setLoadingIndex(null);
+    setScanningAll(true);
+    // Parallel updates
+    await Promise.allSettled(
+      competitors.map((_, i) => refreshIntel(i))
+    );
+    setScanningAll(false);
   };
 
-  const DiffTag = ({ current, previous }: { current: string, previous?: string }) => {
-    if (!previous || current === previous || previous === 'Unknown' || previous.startsWith('Click')) return null;
-    return (
-      <span className="ml-2 px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[8px] font-black uppercase rounded border border-blue-500/30 animate-pulse">
-        Changed
-      </span>
-    );
+  const clearIntel = () => {
+    if(confirm("Clear all scanned intelligence?")) {
+       localStorage.removeItem('co-validator-competitor-intel');
+       window.location.reload();
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    if (status === 'Threat Level Increased') return 'bg-red-500 text-white';
+    if (status === 'Threat Level Decreased') return 'bg-green-500 text-white';
+    if (status === 'No Meaningful Change') return 'bg-gray-500 text-white';
+    return 'bg-white/10 text-gray-400';
   };
+
+  const getStatusDotColor = (status: string) => {
+    if (status === 'Threat Level Increased') return 'bg-red-500';
+    if (status === 'Threat Level Decreased') return 'bg-green-500';
+    if (status === 'No Meaningful Change') return 'bg-gray-500';
+    return 'bg-gray-700';
+  }
 
   if (competitors.length === 0) {
-    return <div className="text-center text-gray-500 py-20">No competitors found in the audit raw data.</div>;
+    return (
+      <div className="max-w-3xl mx-auto p-8 bg-black/40 border border-white/10 rounded-2xl text-center">
+        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">No Direct Competitors Found</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12 animate-fade-in pb-20">
-      <div className="text-center space-y-4">
-        <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Competitor Intel</h2>
-        <p className="text-gray-400 text-sm max-w-xl mx-auto">
-          Startups don't operate in a vacuum. Monitor your "Boss Competitors" for live feature launches, pricing changes, or funding rounds.
-        </p>
-        <div className="pt-4">
+    <div className="max-w-6xl mx-auto space-y-12 animate-fade-in pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 text-left">
+        <div className="space-y-4 max-w-2xl">
+          <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Live Competitor Comms</h2>
+          <p className="text-gray-400 text-sm">
+            Static analysis is for losers. This runs deep web searches on your competitors to catch any recent feature launches, pricing changes, or M&A activity that could threaten your launch.
+          </p>
+        </div>
+        <div className="flex gap-4">
           <button 
             onClick={scanAll}
-            disabled={loadingIndex !== null}
-            className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-full border border-white/10 transition-all disabled:opacity-50"
+            disabled={scanningAll || loadingIndex !== null}
+            className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)] flex items-center gap-2"
           >
-            {loadingIndex === -1 ? 'Scanning All...' : '⚡ Scan All Competitors'}
+            {scanningAll ? <span className="animate-spin text-sm">🕵️</span> : '🛰️'}
+            {scanningAll ? 'Scanning All Frequencies...' : 'Scan All Radars'}
+          </button>
+          <button onClick={clearIntel} className="text-gray-500 hover:text-white px-4 text-xs font-bold uppercase tracking-wider transition-colors">
+            Reset
           </button>
         </div>
       </div>
 
-      <div className="space-y-6">
-        {competitors.map((comp, i) => (
-          <div key={i} className="bg-black/60 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all flex flex-col md:flex-row">
-            <div className="p-6 md:w-1/3 bg-white/5 border-b md:border-b-0 md:border-r border-white/10 flex flex-col justify-between">
+      <div className="grid grid-cols-1 gap-8">
+        {competitors.map((comp, idx) => (
+          <div key={idx} className="bg-black/40 border border-white/10 rounded-3xl overflow-hidden shadow-xl hover:border-white/20 transition-all relative">
+            {/* Header */}
+            <div className="p-6 md:p-8 bg-white/5 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div>
-                <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-2">{comp.name}</h3>
-                <div className="space-y-4 mt-6">
-                  <div>
-                    <span className="text-[10px] uppercase font-black text-red-400 tracking-widest block mb-1">Their Moat</span>
-                    <p className="text-xs text-gray-300 leading-relaxed">{comp.moat}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-black text-green-400 tracking-widest block mb-1">Their Weakness</span>
-                    <p className="text-xs text-gray-300 leading-relaxed">{comp.weakness}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-8">
-                <button 
-                  onClick={() => refreshIntel(i)}
-                  disabled={loadingIndex !== null}
-                  className="w-full py-3 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg"
-                >
-                  {loadingIndex === i ? 'Searching Web...' : 'Refresh Intel'}
-                </button>
-                <div className="text-center mt-2">
-                  <span className="text-[9px] text-gray-500 uppercase">Last Checked: {comp.lastChecked}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 md:w-2/3 space-y-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-[10px] uppercase font-black text-gray-500 tracking-widest block mb-2">Live Intel Synthesis</span>
-                  <span className={`px-4 py-1 text-xs font-black uppercase rounded-full border ${
-                    comp.status === 'Threat Level Increased' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                    comp.status === 'Threat Level Decreased' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                    comp.status === 'Unknown' ? 'bg-white/5 text-gray-400 border-white/10' :
-                    'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-                  }`}>
+                <h3 className="text-2xl font-black text-white">{comp.name}</h3>
+                <div className="flex gap-2 mt-2">
+                  <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded inline-block ${getStatusColor(comp.status)}`}>
                     {comp.status}
                   </span>
-                  <DiffTag current={comp.status} previous={comp.previousIntel?.status} />
+                  {comp.lastChecked !== 'Never' && (
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 py-1">
+                      Last scan: {new Date(comp.lastChecked).toLocaleString()}
+                    </span>
+                  )}
                 </div>
               </div>
+              <button 
+                onClick={() => refreshIntel(idx)}
+                disabled={loadingIndex !== null || scanningAll}
+                className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all shrink-0"
+              >
+                {loadingIndex === idx ? 'Searching...' : 'Refresh Intel'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
               
-              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                <p className={`text-sm leading-relaxed ${comp.intelSummary.startsWith('Click') ? 'text-gray-500 italic' : 'text-white'}`}>
-                  {comp.intelSummary}
-                </p>
-                <DiffTag current={comp.intelSummary} previous={comp.previousIntel?.intelSummary} />
+              {/* Column 1: Core Static Data & Trend */}
+              <div className="p-6 md:p-8 space-y-8">
+                <div>
+                  <h4 className="text-[10px] text-gray-500 uppercase tracking-widest font-black mb-3">Their Moat</h4>
+                  <p className="text-sm text-gray-300 leading-relaxed font-bold">{comp.moat}</p>
+                </div>
+                <div>
+                  <h4 className="text-[10px] text-gray-500 uppercase tracking-widest font-black mb-3">Their Weakness</h4>
+                  <p className="text-sm text-gray-300 leading-relaxed font-bold">{comp.weakness}</p>
+                </div>
+
+                {/* Threat Trend Timeline */}
+                {comp.history && comp.history.length > 1 && (
+                  <div>
+                    <h4 className="text-[10px] text-gray-500 uppercase tracking-widest font-black mb-3">Threat Trend</h4>
+                    <div className="flex items-center gap-2">
+                      {comp.history.map((h, i) => (
+                         <div key={i} className="flex items-center group relative">
+                           {i > 0 && <div className="w-4 h-px bg-white/10" />}
+                           <div className={`w-3 h-3 rounded-full ${getStatusDotColor(h.status)} border border-white/10 group-hover:scale-150 transition-transform`} />
+                           {/* Tooltip */}
+                           <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[8px] uppercase tracking-wider px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10 pointer-events-none">
+                             {new Date(h.date).toLocaleDateString()}
+                           </div>
+                         </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="p-4 bg-black/40 border border-white/5 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase font-black text-blue-400 tracking-widest block">Product & Pricing</span>
-                    <DiffTag current={comp.newFeaturesOrPricing} previous={comp.previousIntel?.newFeaturesOrPricing} />
-                  </div>
-                  <p className="text-xs text-gray-400 leading-relaxed">{comp.newFeaturesOrPricing}</p>
+              {/* Column 2: Live Intel & Strategic Implication */}
+              <div className="p-6 md:p-8 lg:col-span-2 space-y-8 bg-[#111]">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] text-blue-500 uppercase tracking-widest font-black">Latest Field Report</h4>
+                  <p className="text-base text-gray-200 leading-relaxed max-w-2xl font-serif">
+                    {comp.intelSummary}
+                  </p>
                 </div>
-                <div className="p-4 bg-black/40 border border-white/5 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase font-black text-orange-400 tracking-widest block">Funding & M&A</span>
-                    <DiffTag current={comp.fundingOrMNA} previous={comp.previousIntel?.fundingOrMNA} />
+
+                {comp.strategicImplication && (
+                  <div className="bg-red-500/10 border-l-4 border-red-500 p-4 max-w-2xl rounded-r-lg">
+                    <h4 className="text-[10px] text-red-500 uppercase tracking-widest font-black mb-1">Strategic Implication</h4>
+                    <p className="text-sm text-red-200/80 font-bold">{comp.strategicImplication}</p>
                   </div>
-                  <p className="text-xs text-gray-400 leading-relaxed">{comp.fundingOrMNA}</p>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full pt-4">
+                  
+                  {/* Pricing Tiers Array */}
+                  <div className="bg-white/5 rounded-xl border border-white/5 p-4 space-y-4">
+                    <h4 className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Pricing Recon</h4>
+                    {comp.pricingTiers && comp.pricingTiers.length > 0 ? (
+                      <div className="space-y-3">
+                        {comp.pricingTiers.map((tier, tIdx) => (
+                          <div key={tIdx} className="flex justify-between items-center border-b border-white/5 pb-2 last:border-0">
+                            <div>
+                               <span className="text-xs font-bold text-white block">{tier.tier}</span>
+                               <span className="text-[10px] text-gray-500 max-w-[150px] truncate block">{tier.limits}</span>
+                            </div>
+                            <span className="text-sm font-black text-green-400">{tier.price}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 font-bold">No tiers detected.</p>
+                    )}
+                  </div>
+
+                  {/* Funding */}
+                  <div className="bg-white/5 rounded-xl border border-white/5 p-4 space-y-4">
+                    <h4 className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Funding / M&A Radar</h4>
+                    <p className="text-sm text-gray-300 font-bold">{comp.fundingOrMNA}</p>
+                  </div>
+
                 </div>
               </div>
+
             </div>
           </div>
         ))}
