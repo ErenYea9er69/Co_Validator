@@ -37,8 +37,8 @@ TASK: Provide the 3 strongest, evidence-backed arguments for why this startup wi
 `;
 
   const [bearRaw, bullRaw] = await Promise.all([
-    think([{ role: 'system', content: 'You are a cynical, battle-hardened VC. You value hard evidence over theory.' }, { role: 'user', content: bearPrompt }], { maxTokens: 4096 }),
-    think([{ role: 'system', content: 'You are a visionary growth investor. You value proven scale patterns over theory.' }, { role: 'user', content: bullPrompt }], { maxTokens: 4096 })
+    think([{ role: 'system', content: 'You are a cynical, battle-hardened VC. You value hard evidence over theory.' }, { role: 'user', content: bearPrompt }], 'BearCase'),
+    think([{ role: 'system', content: 'You are a visionary growth investor. You value proven scale patterns over theory.' }, { role: 'user', content: bullPrompt }], 'BullCase')
   ]);
 
   const moderatorPrompt = `
@@ -48,10 +48,10 @@ IDEA:
 ${idea}
 
 BEAR'S CASE (Constraint: Must cite named failure):
-${bearRaw.content}
+${bearRaw}
 
 BULL'S CASE (Constraint: Must cite named success):
-${bullRaw.content}
+${bullRaw}
 
 TASK: Synthesize this debate into "The Ground Truth". 
 Where do they agree? Where is the conflict genuine? 
@@ -69,12 +69,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a Master Validator specializing in adversarial analysis and multi-agent synthesis.' },
     { role: 'user', content: moderatorPrompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'ModeratorSynthesis');
 }
-
-

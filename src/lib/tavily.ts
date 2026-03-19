@@ -1,25 +1,21 @@
 import { tavily } from '@tavily/core';
 import { retryWithBackoff } from './retryHandler';
 import { getCachedResults, setCachedResults } from './searchCache';
+import crypto from 'crypto';
 
-const apiKeys = [
-  process.env.TAVILY_API_KEY,
-  process.env.TAVILY_API_KEY_2,
-  process.env.TAVILY_API_KEY_3,
-].filter(Boolean) as string[];
+const API_KEYS = [
+  process.env.TAVILY_API_KEY || '',
+  process.env.TAVILY_API_KEY_2 || '',
+  process.env.TAVILY_API_KEY_3 || '',
+  process.env.TAVILY_API_KEY_4 || '',
+  process.env.TAVILY_API_KEY_5 || '',
+].filter(Boolean);
 
-function getClient(query: string = '') {
-  if (apiKeys.length === 0) throw new Error('No Tavily API keys provided');
-  
-  // Use a simple hash of the query to pick a key deterministically
-  // This avoids race conditions on a global counter (Fix 3)
-  let hash = 0;
-  for (let i = 0; i < query.length; i++) {
-    hash = ((hash << 5) - hash) + query.charCodeAt(i);
-    hash |= 0; // Convert to 32bit integer
-  }
-  const index = Math.abs(hash) % apiKeys.length;
-  return tavily({ apiKey: apiKeys[index] });
+function getClient(pulse: string): any {
+  if (API_KEYS.length === 0) return null;
+  const hash = crypto.createHash('md5').update(pulse).digest('hex');
+  const index = parseInt(hash.substring(0, 8), 16) % API_KEYS.length;
+  return tavily({ apiKey: API_KEYS[index] });
 }
 
 let totalCreditsUsed = 0;
@@ -41,6 +37,7 @@ const STARTUP_DOMAINS = [
   'ycombinator.com',
   'betalist.com',
   'alternativeto.net',
+  'news.ycombinator.com'
 ];
 
 export interface SearchResult {
@@ -65,7 +62,6 @@ async function search(
   query: string,
   options: SearchOptions = {}
 ): Promise<{ results: SearchResult[]; answer?: string }> {
-  // Tavily has a 400 character limit for queries
   const safeQuery = query.length > 400 ? query.substring(0, 400) : query;
   
   const {
@@ -96,16 +92,13 @@ async function search(
         ...(includeAnswer && { includeAnswer: true }),
       };
 
-      if (timeRange) {
-        if (hasDateOperators) {
-          console.warn(`[Tavily] Query contains date operators. Skipping timeRange: "${timeRange}" for query: "${query}"`);
-        } else {
-          (activeOptions as any).timeRange = timeRange;
-        }
+      if (timeRange && !hasDateOperators) {
+        (activeOptions as any).timeRange = timeRange;
       }
 
-      const res = await getClient(safeQuery).search(safeQuery, activeOptions);
-      return res;
+      const client = getClient(safeQuery);
+      if (!client) throw new Error('No Tavily API client available');
+      return await client.search(safeQuery, activeOptions);
     } catch (error: any) {
       console.error(`[Tavily] Search error for query "${safeQuery}":`, error?.message || error);
       throw error;
@@ -115,16 +108,14 @@ async function search(
   totalCreditsUsed += searchDepth === 'advanced' ? 2 : 1;
 
   const result = {
-    results: (response.results || []).map((r: Record<string, unknown>) => ({
+    results: (response.results || []).map((r: any) => ({
       title: String(r.title || ''),
       url: String(r.url || ''),
-      content: String(r.content || ''),
+      content: String(r.content || r.raw_content || ''),
       score: Number(r.score || 0),
     })),
     answer: typeof response.answer === 'string' ? response.answer : undefined,
   };
-
-  console.log(`[Tavily] Search success for "${safeQuery}". Results: ${result.results.length}, Answer: ${result.answer ? 'Yes' : 'No'}`);
 
   if (useCache) {
     await setCachedResults(safeQuery, result);
@@ -133,136 +124,42 @@ async function search(
   return result;
 }
 
-export async function searchMarketGaps(
-  query: string,
-  options: SearchOptions = {}
-): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(query, {
-    searchDepth: 'advanced',
-    maxResults: 10,
-    includeAnswer: true,
-    ...options,
-  });
+export async function searchMarketGaps(query: string) {
+  return search(query, { searchDepth: 'advanced', maxResults: 10, includeAnswer: true });
 }
 
-// FIX: Smarter competitor search — uses user's known competitor names + industry landscape
-export async function searchCompetitors(
-  ideaName: string,
-  industry: string,
-  userCompetitorInfo: string = ''
-): Promise<{ results: SearchResult[]; answer?: string }> {
-  // Extract potential competitor names from user input
-  const competitorNames = userCompetitorInfo
-    .split(/[,.\n;]/)
-    .map(s => s.trim())
-    .filter(s => s.length > 2 && s.length < 40)
-    .slice(0, 3)
-    .join(' OR ');
-
-  const query = competitorNames
-    ? `${competitorNames} ${industry} startup competitor analysis market share`
-    : `${industry} top competitors startups tools platforms ${new Date().getFullYear()}`;
-
-  return search(query, {
-    searchDepth: 'advanced',
-    maxResults: 10,
-    includeAnswer: true,
-  });
+export async function searchCompetitors(ideaName: string, industry: string, userCompetitorInfo: string = '') {
+  const competitorNames = userCompetitorInfo.split(/[,.\n;]/).map(s => s.trim()).filter(s => s.length > 2).slice(0, 3).join(' OR ');
+  const query = competitorNames ? `${competitorNames} ${industry} startup competitors` : `${industry} top startups competitors ${new Date().getFullYear()}`;
+  return search(query, { searchDepth: 'advanced', maxResults: 10, includeAnswer: true });
 }
 
-export async function searchStartupEcosystem(
-  query: string
-): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(query, {
-    searchDepth: 'basic',
-    maxResults: 15,
-    includeDomains: STARTUP_DOMAINS,
-  });
-}
-
-export async function searchTrends(
-  industry: string
-): Promise<{ results: SearchResult[]; answer?: string }> {
-  const year = new Date().getFullYear();
-  const nextYear = year + 1;
-  return search(`${industry} startup trends ${year} ${nextYear} emerging opportunities`, {
-    searchDepth: 'basic',
-    maxResults: 10,
-    topic: 'news',
-    timeRange: 'month',
-    includeAnswer: true,
-  });
-}
-
-// FIX: Smarter problem search — no quotes, searches for the pain not the idea
-export async function verifyProblem(
-  problem: string,
-  industry: string
-): Promise<{ results: SearchResult[]; answer?: string }> {
-  // Extract key pain phrases (first 100 chars) without wrapping in quotes
+export async function verifyProblem(problem: string, industry: string) {
   const painCore = problem.substring(0, 120).replace(/"/g, '');
-  return search(`${painCore} ${industry} user frustration complaints market demand`, {
-    searchDepth: 'advanced',
-    maxResults: 8,
-    includeAnswer: true,
-  });
+  return search(`${painCore} ${industry} user frustration complaints market demand`, { searchDepth: 'advanced', maxResults: 8, includeAnswer: true });
 }
 
-// FIX: Smarter pricing search — industry benchmarks, not nonexistent product pricing
-export async function searchPricing(
-  ideaName: string,
-  industry: string
-): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(`${industry} SaaS pricing benchmarks average revenue per user ARPU market size ${new Date().getFullYear()}`, {
-    searchDepth: 'basic',
-    maxResults: 8,
-    includeAnswer: true,
-  });
+export async function searchPricing(ideaName: string, industry: string) {
+  return search(`${industry} SaaS pricing benchmarks ARPU ${new Date().getFullYear()}`, { searchDepth: 'basic', maxResults: 8, includeAnswer: true });
 }
 
-export async function searchSyntheticPrimary(
-  queries: string[]
-): Promise<{ results: SearchResult[] }> {
-  const domains = ['reddit.com', 'indiehackers.com', 'g2.com', 'trustpilot.com', 'producthunt.com', 'news.ycombinator.com'];
-  const allResults: SearchResult[] = [];
-  
-  for (const query of queries.slice(0, 3)) { // Limit to 3 queries to save credits
-    const res = await search(query, {
-      searchDepth: 'advanced',
-      maxResults: 5,
-      includeDomains: domains,
-      useCache: true
-    });
-    allResults.push(...res.results);
+export async function searchSyntheticPrimary(queries: string[]): Promise<{ results: SearchResult[] }> {
+  // Fix 9: Parallelize sequential Tavily searches
+  const results = await Promise.all(
+    queries.slice(0, 3).map(q => search(q, { searchDepth: 'advanced', maxResults: 5, includeDomains: STARTUP_DOMAINS, useCache: true }))
+  );
+  return { results: results.flatMap(r => r.results) };
+}
+
+export async function deepScrape(urls: string[]): Promise<string> {
+  if (urls.length === 0) return "";
+  const client = getClient(urls.join('|'));
+  if (!client) return "";
+  try {
+    const results = await client.extract(urls);
+    return (results.results || []).map((r: any) => r.raw_content || r.content || "").join("\n\n---\n\n");
+  } catch (e) {
+    console.error("DeepScrape failed:", e);
+    return "";
   }
-
-  return { results: allResults };
-}
-
-export async function lightningSearch(query: string): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(query, {
-    searchDepth: 'basic',
-    maxResults: 5,
-    includeAnswer: true,
-    timeRange: 'week',
-  });
-}
-
-export async function deepScrape(urls: string[]): Promise<any[]> {
-  if (urls.length === 0) return [];
-  
-  const response = await retryWithBackoff(async () => {
-    try {
-      const res = await getClient(urls.join(',')).extract(urls);
-      return res;
-    } catch (error: any) {
-      console.error(`[Tavily] Extract error:`, error?.message || error);
-      throw error;
-    }
-  }, 2);
-
-  return (response.results || []).map((r: any) => ({
-    url: r.url,
-    rawContent: r.rawContent || r.content || ''
-  }));
 }

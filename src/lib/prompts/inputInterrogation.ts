@@ -41,10 +41,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are an elite business analyst and interviewer.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'InputInterrogation');
 }

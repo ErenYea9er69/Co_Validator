@@ -1,56 +1,57 @@
 import fs from 'fs';
 import path from 'path';
 
-const CACHE_FILE = path.join('/tmp', 'tavily-cache.json');
-const TTL_MS = 30 * 60 * 1000; // 30 minutes for persistent cache
+const CACHE_FILE = path.join(process.cwd(), 'tmp', 'tavily-cache.json');
+const memCache = new Map<string, { data: any; expiry: number }>();
+let diskLoaded = false;
 
-function readCache(): Map<string, { data: any; expiry: number }> {
-    try {
-        if (fs.existsSync(CACHE_FILE)) {
-            const content = fs.readFileSync(CACHE_FILE, 'utf-8');
-            const parsed = JSON.parse(content);
-            return new Map(Object.entries(parsed));
-        }
-    } catch (e) {
-        console.warn('[SearchCache] Failed to read disk cache:', e);
-    }
-    return new Map();
+// Ensure tmp directory exists
+if (!fs.existsSync(path.dirname(CACHE_FILE))) {
+  try {
+    fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
+  } catch (e) {}
 }
 
-function writeCache(cache: Map<string, any>) {
-    try {
-        const obj = Object.fromEntries(cache);
-        fs.writeFileSync(CACHE_FILE, JSON.stringify(obj), 'utf-8');
-    } catch (e) {
-        console.warn('[SearchCache] Failed to write disk cache:', e);
+function ensureDiskLoaded() {
+  if (diskLoaded) return;
+  diskLoaded = true;
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const content = fs.readFileSync(CACHE_FILE, 'utf-8');
+      const data = JSON.parse(content);
+      Object.entries(data).forEach(([k, v]: [string, any]) => {
+        memCache.set(k, v);
+      });
     }
-}
-
-export function setCachedResults(query: string, result: any) {
-  const key = query.toLowerCase().trim();
-  const cache = readCache();
-  cache.set(key, { data: result, expiry: Date.now() + TTL_MS });
-
-  // Evict expired / keep size reasonable
-  if (cache.size > 100) {
-    const now = Date.now();
-    for (const [k, v] of cache) {
-      if (v.expiry < now) cache.delete(k);
-    }
+  } catch (e) {
+    console.warn("Failed to load search cache from disk:", e);
   }
-  writeCache(cache);
+}
+
+async function flushToDisk() {
+  try {
+    const data = Object.fromEntries(memCache.entries());
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error("Failed to write search cache to disk:", e);
+  }
 }
 
 export function getCachedResults(query: string): any | null {
-  const key = query.toLowerCase().trim();
-  const cache = readCache();
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expiry) {
-    cache.delete(key);
-    writeCache(cache);
-    return null;
+  ensureDiskLoaded();
+  const cached = memCache.get(query);
+  if (cached && cached.expiry > Date.now()) {
+    return cached.data;
   }
-  console.log(`[SearchCache] Disk HIT for "${key.substring(0, 60)}..."`);
-  return entry.data;
+  return null;
+}
+
+export function setCachedResults(query: string, data: any): void {
+  ensureDiskLoaded();
+  memCache.set(query, {
+    data,
+    expiry: Date.now() + 1000 * 60 * 60 * 24 // 24 hours
+  });
+  // Fire and forget disk write
+  flushToDisk();
 }

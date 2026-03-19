@@ -1,6 +1,6 @@
 import { think } from '../ai';
 
-export async function pivotEngine(idea: string, failures: string): Promise<string> {
+export async function pivotEngine(idea: string, failures: string, token?: string): Promise<string> {
   const prompt = `
 You are the "Strategic Pivot Master." Your job is to rescue a failing idea by finding its high-potential neighbor.
 
@@ -28,10 +28,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a master "Pivot Architect" specialized in saving startups from the Tarpit.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'PivotEngine');
 }

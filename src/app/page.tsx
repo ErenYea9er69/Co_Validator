@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import * as actions from './actions';
 import Roadmap from './components/Roadmap';
+import { safeJsonParse } from '@/lib/safeJsonParse';
 
 
 // ─── Input Quality Helper ───
@@ -52,22 +53,27 @@ export default function Home() {
 
   const addLog = (msg: string) => setLogs(prev => [...prev.slice(-12), msg]);
 
-  // ─── localStorage persistence ───
-  const SCHEMA_VERSION = 4;
+    const [auditToken, setAuditToken] = useState<string>(''); // Fix 8: Token state
+    
+    // ─── localStorage persistence ───
+    const SCHEMA_VERSION = 4;
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('co-validator-audit');
-      if (saved) {
-        const { result: r, rawData: rd, challenges: ch, idea: id, version } = JSON.parse(saved);
-        if (version === SCHEMA_VERSION && r) { 
-          setResult(r); setRawData(rd || {}); setChallenges(ch || null); setIdea(id); setPhase(10); 
-        } else {
-          localStorage.removeItem('co-validator-audit');
+    useEffect(() => {
+      try {
+        const savedToken = localStorage.getItem('audit-token') || process.env.NEXT_PUBLIC_AUDIT_SECRET || '';
+        setAuditToken(savedToken);
+
+        const saved = localStorage.getItem('co-validator-audit');
+        if (saved) {
+          const { result: r, rawData: rd, challenges: ch, idea: id, version } = JSON.parse(saved);
+          if (version === SCHEMA_VERSION && r) { 
+            setResult(r); setRawData(rd || {}); setChallenges(ch || null); setIdea(id); setPhase(10); 
+          } else {
+            localStorage.removeItem('co-validator-audit');
+          }
         }
-      }
-    } catch {}
-  }, []);
+      } catch {}
+    }, []);
 
   const handleStressTest = async (change: string) => {
     if (!change || isStressTesting) return;
@@ -78,7 +84,7 @@ export default function Home() {
         reasoning: result.reasoning,
       };
       const testResult = await actions.runStressTest(JSON.stringify(idea), change, summary as any);
-      setStressResults(prev => [{ ...testResult, change, id: Date.now() }, ...prev]);
+      setStressResults(prev => [{ ...testResult.result, change, id: Date.now() }, ...prev]); // Fix 3: Spread result
     } catch (e) {
       console.error(e);
     } finally {
@@ -179,6 +185,7 @@ export default function Home() {
     const currentIdea = customIdea || idea;
     setLoading(true); setResult(null); setChallenges(null); setRawData({}); setShowFullReport(false);
     setCompletedSteps(0);
+    setAuditUsage({ tokens: 0, searches: 0 }); // Fix 6: Reset usage
     setStressTestResult(null); setFailedPhases([]); setLogs(['Initiating engines...']);
 
     const trackUsage = (res: any) => {
@@ -204,12 +211,12 @@ export default function Home() {
     const baseContext = `IDEA_INPUT: ${JSON.stringify(currentIdea)}${interrogationVerified}`;
 
     const wave1 = await Promise.allSettled([
-      actions.runPhase1Problem(currentIdea, `Initial Scan${interrogationVerified}`),
-      actions.runPhase2Competitors(currentIdea, `${currentIdea.competitorsInfo}${interrogationVerified}`),
-      actions.runPhase4Feasibility(currentIdea),
-      actions.runPhase5Market(currentIdea),
-      actions.runFounderFit(currentIdea),
-      actions.runSyntheticResearch(currentIdea),
+      actions.runPhase1Problem(currentIdea, `Initial Scan${interrogationVerified}`, auditToken),
+      actions.runPhase2Competitors(currentIdea, `${currentIdea.competitorsInfo}${interrogationVerified}`, auditToken),
+      actions.runPhase4Feasibility(currentIdea, auditToken),
+      actions.runPhase5Market(currentIdea, auditToken),
+      actions.runFounderFit(currentIdea, auditToken),
+      actions.runSyntheticResearch(currentIdea, auditToken),
     ]);
 
     wave1.forEach((w, i) => {
@@ -219,24 +226,31 @@ export default function Home() {
         trackUsage(res);
         setCompletedSteps(prev => prev + 1);
         
-        // Fix 9: Immediate parse error detection
         if (res.result?._parseError) {
           failed.push(`${labels[i]} (Data Corrupted)`);
           addLog(`⚠️ ${labels[i]} corrupted`);
         }
 
         switch(i) {
-          case 0: p1 = res; setRawData((prev: any) => ({ ...prev, p1 })); if (res.searchResults) evidence['problem_evidence'] = res.searchResults; addLog('Problem reality ✓'); break;
-          case 1: p2 = res; setRawData((prev: any) => ({ ...prev, p2 })); if (res.searchResults) evidence['competitor_scan'] = res.searchResults; addLog('Competitors ✓'); break;
-          case 2: p4 = res; setRawData((prev: any) => ({ ...prev, p4 })); addLog('Feasibility ✓'); break;
-          case 3: p5 = res; setRawData((prev: any) => ({ ...prev, p5 })); if (res.searchResults) evidence['pricing_research'] = res.searchResults; addLog('Market ✓'); break;
-          case 4: p_fit = res; setRawData((prev: any) => ({ ...prev, p_fit })); addLog('Founder Fit ✓'); break;
-          case 5: syntheticData = res; setRawData((prev: any) => ({ ...prev, syntheticData })); if (res.searchResults) evidence['synthetic_primary_signals'] = res.searchResults; addLog('Synthetic Primary Research ✓'); break;
+          case 0: p1 = res; break;
+          case 1: p2 = res; break;
+          case 2: p4 = res; break;
+          case 3: p5 = res; break;
+          case 4: p_fit = res; break;
+          case 5: syntheticData = res; break;
         }
       } else {
         failed.push(labels[i]);
         addLog(`⚠️ ${labels[i]} failed`);
       }
+    });
+
+    // Fix 13: Incremental save after Wave 1
+    const w1Data = { p1, p2, p4, p5, p_fit, syntheticData };
+    setRawData((prev: any) => {
+        const updated = { ...prev, ...w1Data };
+        localStorage.setItem('audit-in-progress', JSON.stringify({ idea: currentIdea, rawData: updated, phase: 1 }));
+        return updated;
     });
 
 
@@ -254,10 +268,10 @@ export default function Home() {
     // ═══ WAVE 2: Phases dependent on P2 (3, 6, Regulatory, Financial) ═══
     setPhase(3); setPhaseName('Deep-Dive Wave'); addLog('Analyzing saturation, differentiation, regulatory, and financials...');
     const wave2 = await Promise.allSettled([
-      actions.runPhase3Competition(currentIdea, p2?.raw || ''),
-      actions.runPhase6Differentiation(currentIdea, p2?.raw || ''),
-      actions.runPhase9Regulatory(currentIdea, JSON.stringify({ p1, p2, p4 })),
-      actions.runPhase10Financial(currentIdea, JSON.stringify({ p1, p2, p4, p5 })),
+      actions.runPhase3Competition(currentIdea, p2?.raw || '', auditToken),
+      actions.runPhase6Differentiation(currentIdea, p2?.raw || '', auditToken),
+      actions.runPhase9Regulatory(currentIdea, JSON.stringify({ p1, p2, p4 }), auditToken),
+      actions.runPhase10Financial(currentIdea, JSON.stringify({ p1, p2, p4, p5 }), auditToken),
     ]);
 
     wave2.forEach((w, i) => {
@@ -273,15 +287,22 @@ export default function Home() {
         }
 
         switch(i) {
-          case 0: p3 = res; setRawData((prev: any) => ({ ...prev, p3 })); addLog('Saturation risk ✓'); break;
-          case 1: p6 = res; setRawData((prev: any) => ({ ...prev, p6 })); addLog('Differentiation ✓'); break;
-          case 2: setRawData((prev: any) => ({ ...prev, p9: res })); addLog('Regulatory fortress ✓'); break;
-          case 3: setRawData((prev: any) => ({ ...prev, p10: res })); addLog('Financial engine ✓'); break;
+          case 0: p3 = res; break;
+          case 1: p6 = res; break;
+          case 2: break; // p9 is handled via setRawData below
+          case 3: break; // p10 is handled via setRawData below
         }
       } else {
         failed.push(labels[i]);
         addLog(`⚠️ ${labels[i]} failed`);
       }
+    });
+
+    // Fix 13: Incremental save after Wave 2
+    setRawData((prev: any) => {
+        const updated = { ...prev, p3, p6 };
+        localStorage.setItem('audit-in-progress', JSON.stringify({ idea: currentIdea, rawData: updated, phase: 3 }));
+        return updated;
     });
 
     // ═══ WAVE 3: Intelligence (Interrogation + Pre-Mortem + Debate + Competitive Response + Apathy) ═══
@@ -292,11 +313,11 @@ export default function Home() {
 
     setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running simulations and adversarial debate...');
     const wave3 = await Promise.allSettled([
-      actions.runInterrogation(currentIdea, researchSummary),
-      actions.runPreMortem(currentIdea, researchSummary),
-      actions.runDebateEngine(currentIdea, researchSummary),
-      actions.runCompetitiveResponse(currentIdea, researchSummary),
-      actions.runApathySimulation(currentIdea, researchSummary),
+      actions.runInterrogation(currentIdea, researchSummary, auditToken),
+      actions.runPreMortem(currentIdea, researchSummary, auditToken),
+      actions.runDebateEngine(currentIdea, researchSummary, auditToken),
+      actions.runCompetitiveResponse(currentIdea, researchSummary, auditToken),
+      actions.runApathySimulation(currentIdea, researchSummary, auditToken),
     ]);
 
     wave3.forEach((w, i) => {
@@ -307,7 +328,15 @@ export default function Home() {
         
         switch(i) {
           case 0: interrogationData = res; addLog('Interrogation ready ✓'); break;
-          case 1: preMortemData = res; addLog('Simulation complete ✓'); break;
+          case 1: 
+            preMortemData = res; 
+            setRawData((prev: any) => {
+              const updated = { ...prev, preMortem: res };
+              localStorage.setItem('audit-raw-data', JSON.stringify(updated)); // Fix 13: Incremental save
+              return updated;
+            }); // Fix 1: Properly persist preMortem
+            addLog('Simulation complete ✓'); 
+            break;
           case 2: setRawData((prev: any) => ({ ...prev, debate: res })); addLog('Adversarial debate complete ✓'); break;
           case 3: setRawData((prev: any) => ({ ...prev, competitiveResponse: res })); addLog('Competitive retaliation simulated ✓'); break;
           case 4: setRawData((prev: any) => ({ ...prev, apathy: res })); addLog('Customer apathy simulated ✓'); break;
@@ -321,14 +350,21 @@ export default function Home() {
 
     setChallenges({ interrogation: interrogationData, preMortem: preMortemData });
 
+    // Fix 4: Rebuild summary with Wave 3 intelligence
+    const fullResearchSummary = JSON.stringify({
+      wave1: { p1: p1?.result, p2: p2?.result, p4: p4?.result, p5: p5?.result, p_fit: p_fit?.result, synthetic: syntheticData?.result },
+      wave2: { p3: p3?.result, p6: p6?.result, p9: rawData.p9?.result, p10: rawData.p10?.result },
+      wave3: { preMortem: preMortemData?.result, debate: rawData.debate?.result, competitive: rawData.competitiveResponse?.result, apathy: rawData.apathy?.result }
+    });
+
 
 
     // ═══ WAVE 4: Strategic Planning (Failures + Roadmap) ═══
     let roadmapData: any = null;
     setPhase(7); setPhaseName('Strategic Planning'); addLog('Developing failure pre-emption and industrial roadmap...');
     const wave4 = await Promise.allSettled([
-      actions.runPhase7Failures(JSON.stringify(currentIdea), preMortemData?.result, researchSummary),
-      actions.runPhase7Roadmap(currentIdea, researchSummary)
+      actions.runPhase7Failures(JSON.stringify(currentIdea), preMortemData?.result, researchSummary, auditToken),
+      actions.runPhase7Roadmap(currentIdea, researchSummary, auditToken)
     ]);
 
     wave4.forEach((w, i) => {
@@ -355,13 +391,13 @@ export default function Home() {
     // ═══ Final Scoring ═══
     try {
       setPhase(8); setPhaseName('Final Scoring'); addLog('Synthesizing Master Verdict...');
-      const finalResult = await actions.finalizeAudit(currentIdea, researchSummary, currentIdea.interrogationAnswers);
+      const finalResult = await actions.finalizeAudit(currentIdea, fullResearchSummary, currentIdea.interrogationAnswers, auditToken);
       trackUsage(finalResult);
       
-      // Merge roadmap into result (Fix 11)
       const mergedResult = { 
         ...finalResult.result, 
-        roadmap: roadmapData 
+        roadmap: roadmapData,
+        pivotSuggestions: finalResult.pivotRaw ? safeJsonParse(finalResult.pivotRaw as string, null) : null // Fix 5: Pivot data
       };
       
       setResult(mergedResult);
@@ -765,7 +801,21 @@ export default function Home() {
         {/* Result Header Buttons */}
         {result && (
           <div className="flex justify-end gap-4 print:hidden mb-8 animate-fade-in flex-wrap">
-             <button onClick={() => { setResult(null); setPhase(-1); setPhaseName(''); setShowFullReport(false); setChallenges(null); setRawData({}); setStressTestResult(null); setStressTestLoading(false); setFailedPhases([]); setLogs([]); setStressTestInput(''); clearSaved(); }}
+             <button onClick={() => { 
+                setResult(null); 
+                setPhase(-1); 
+                setPhaseName(''); 
+                setShowFullReport(false); 
+                setChallenges(null); 
+                setRawData({}); 
+                setStressResults([]); 
+                setStressTestResult(null); 
+                setStressTestLoading(false); 
+                setFailedPhases([]); 
+                setLogs([]); 
+                setStressTestInput(''); 
+                clearSaved(); 
+              }}
                 className="px-6 py-2 border border-green-500/50 rounded-full text-xs font-black uppercase tracking-widest hover:bg-green-500/10 transition-all text-green-400">
                 + New Audit
              </button>
@@ -1236,6 +1286,38 @@ export default function Home() {
                     </div>
                 </section>
               )}
+              {/* VII-b. Expert Stress Test Failure Scenarios */}
+              {rawData.p7?.result?.failureScenarios && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.2s' }}>
+                   <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
+                      <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30 text-lg">VII-b</span>
+                      EXPERT FAILURE SCENARIOS (P7)
+                   </h3>
+                   <div className="grid lg:grid-cols-3 gap-6">
+                      {rawData.p7.result.failureScenarios.map((s: any, i: number) => (
+                        <div key={i} className="glass-card border-red-500/20">
+                           <div className="flex justify-between items-start mb-4">
+                              <span className="text-xs font-black text-red-400 uppercase tracking-widest">{s.scenario}</span>
+                              <span className="text-[10px] font-black bg-red-500/20 text-red-500 px-2 py-0.5 rounded italic font-mono">
+                                 {s.probability}% PROB
+                              </span>
+                           </div>
+                           <p className="text-sm text-gray-300 italic mb-4">"{s.mechanism}"</p>
+                           <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                              <span className="text-[9px] text-gray-400 uppercase font-black block mb-1">Expert Mitigation</span>
+                              <p className="text-xs text-white font-bold">{s.mitigation}</p>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                   {rawData.p7.result.mostLikelyDeathCause && (
+                     <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-3xl">
+                        <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-1 underline">Most Likely Death Cause</span>
+                        <p className="text-2xl font-black text-white italic leading-tight">"{rawData.p7.result.mostLikelyDeathCause}"</p>
+                     </div>
+                   )}
+                </section>
+              )}
 
              {/* VIII. Execution Dossier */}
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.4s' }}>
@@ -1490,8 +1572,28 @@ export default function Home() {
                    </div>
                    <div className="p-4 text-center border-y border-white/10 italic">
                       <p className="text-lg font-serif text-gray-400">"{rawData.preMortem.result.closingThought}"</p>
-                   </div>
-                </section>
+                    </div>
+
+                    {/* expert failures section (Fix 14) */}
+                    {rawData.p7?.result && (
+                       <div className="mt-12 glass-card border-l-4 border-red-600 !bg-red-600/5">
+                          <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-6">Expert Failure Stress Scenarios (Historical Rank)</h4>
+                          <div className="grid lg:grid-cols-3 gap-6">
+                             {rawData.p7.result.failureScenarios?.map((s: any, i: number) => (
+                                <div key={i} className="p-4 bg-black/40 rounded-xl border border-white/5 transition-all hover:border-red-500/30">
+                                   <div className="flex justify-between mb-2">
+                                      <span className="text-[8px] font-black text-gray-500 uppercase">Rank #{i+1}</span>
+                                      <span className="text-[8px] font-black text-red-500 uppercase">{s.probability} Probability</span>
+                                   </div>
+                                   <h5 className="text-xs font-black text-white mb-2 underline decoration-red-500/20">{s.scenario}</h5>
+                                   <p className="text-[10px] text-gray-400 italic mb-4 leading-tight">"{s.mitigation}"</p>
+                                   <div className="text-[8px] font-black text-gray-600 uppercase">Fatal Loop: {s.fatalLoop}</div>
+                                </div>
+                             ))}
+                          </div>
+                       </div>
+                    )}
+                 </section>
              )}
 
              {/* XIII. Regulatory IQ & Capability Gap */}
@@ -1691,6 +1793,31 @@ export default function Home() {
              </div>
              </section>
 
+              {/* XVII-b. Strategic Pivot Suggestions */}
+              {result.pivotSuggestions?.pivots && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '3.5s' }}>
+                   <h3 className="text-3xl font-black text-yellow-500 flex items-center gap-4">
+                      <span className="bg-yellow-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-yellow-500/30 font-mono text-lg">XVII-b</span>
+                      STRATEGIC PIVOT SUGGESTIONS
+                   </h3>
+                   <div className="grid lg:grid-cols-3 gap-6">
+                      {result.pivotSuggestions.pivots.map((p: any, i: number) => (
+                        <div key={i} className="glass-card border-yellow-500/30 bg-yellow-500/5 transition-all hover:bg-yellow-500/10">
+                           <h4 className="text-lg font-black text-white mb-2 underline decoration-yellow-500/50">{p.name}</h4>
+                           <div className="flex items-center gap-2 mb-4">
+                              <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest bg-yellow-500/10 px-2 py-0.5 rounded">{p.shift}</span>
+                           </div>
+                           <p className="text-sm text-gray-200 italic mb-6 leading-relaxed">"{p.logic}"</p>
+                           <div className="p-4 bg-black/20 rounded-xl border border-white/5">
+                              <span className="text-[9px] text-gray-500 uppercase font-black block mb-1">Market Opportunity</span>
+                              <p className="text-xs text-white font-bold font-mono tracking-tight">{p.opportunity}</p>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </section>
+              )}
+
              {/* XVIII. Interactive Stress Test */}
              <section className="glass-card border-purple-500/50 bg-purple-500/5 p-12 animate-slide-up" style={{ animationDelay: '2.2s' }}>
                 <div className="max-w-3xl mx-auto text-center">
@@ -1770,6 +1897,7 @@ export default function Home() {
                      setFailedPhases([]);
                      setLogs([]);
                      setStressTestInput('');
+                     localStorage.removeItem('audit-in-progress'); // Fix 13
                      clearSaved();
                   }}
                   className="px-8 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-black text-xs uppercase tracking-widest transition-all"

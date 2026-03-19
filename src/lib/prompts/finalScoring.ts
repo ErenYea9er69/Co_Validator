@@ -1,6 +1,6 @@
 import { think } from '../ai';
 
-export async function finalScoring(
+export async function finalizeAuditPrompt(
   idea: string, 
   allPhaseResults: string
 ): Promise<string> {
@@ -49,10 +49,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a Master Validator specializing in adversarial analysis and multi-agent synthesis.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'FinalScoring');
 }
