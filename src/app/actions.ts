@@ -25,7 +25,7 @@ import { pivotEngine } from '@/lib/prompts/pivotEngine';
 import { stressTestSimulation } from '@/lib/prompts/stressTest';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
-export function checkAuth(token?: string) {
+function checkAuth(token?: string) {
   const secret = process.env.AUDIT_SECRET;
   if (!secret) return; 
   if (process.env.NODE_ENV === 'production') {
