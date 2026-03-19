@@ -21,6 +21,8 @@ import { financialAnalysis } from '@/lib/prompts/financialAnalysis';
 import { runDebate } from '@/lib/prompts/debateEngine';
 import { competitiveResponse } from '@/lib/prompts/competitiveResponse';
 import { apathySimulator } from '@/lib/prompts/apathySimulator';
+import { generateSprintPlan } from '@/lib/prompts/generateSprintPlan';
+import { rescoreWithEvidence } from '@/lib/prompts/rescoreAudit';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
 import { stressTestSimulation } from '@/lib/prompts/stressTest';
 import { safeJsonParse } from '@/lib/safeJsonParse';
@@ -178,4 +180,16 @@ export async function runStressTest(idea: any, change: string, auditSummary: { a
   checkAuth(token);
   const raw = await stressTestSimulation(JSON.stringify(idea), change, JSON.stringify(auditSummary));
   return { result: safeJsonParse(raw), usage: {} };
+}
+
+export async function runSprintPlan(idea: any, auditResult: any, token?: string) {
+  checkAuth(token);
+  const raw = await generateSprintPlan(idea, auditResult);
+  return { result: safeJsonParse(raw, {}, 'Sprint Plan'), raw };
+}
+
+export async function rescoreAudit(idea: any, originalAudit: any, evidenceLog: any[], token?: string) {
+  checkAuth(token);
+  const raw = await rescoreWithEvidence(JSON.stringify(idea), JSON.stringify(originalAudit), JSON.stringify(evidenceLog));
+  return { result: safeJsonParse(raw, {}, 'Rescore Audit'), raw };
 }

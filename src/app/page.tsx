@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import * as actions from './actions';
 import Roadmap from './components/Roadmap';
+import CommandCenter, { TabId } from './components/CommandCenter';
+import SprintPlan from './components/SprintPlan';
+import AssumptionTracker from './components/AssumptionTracker';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 
@@ -33,7 +36,7 @@ export default function Home() {
   const [phaseName, setPhaseName] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
   const [result, setResult] = useState<any>(null);
-  const [showFullReport, setShowFullReport] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('dossier');
   const [challenges, setChallenges] = useState<any>(null);
   const [stressTestInput, setStressTestInput] = useState('');
   const [stressTestResult, setStressTestResult] = useState<any>(null);
@@ -183,7 +186,7 @@ export default function Home() {
   // ─── Audit orchestrator with PARALLELIZED phases + error resilience ───
   const performFullAudit = async (customIdea?: any) => {
     const currentIdea = customIdea || idea;
-    setLoading(true); setResult(null); setChallenges(null); setRawData({}); setShowFullReport(false);
+    setLoading(true); setResult(null); setChallenges(null); setRawData({}); setActiveTab('dossier');
     setCompletedSteps(0);
     setAuditUsage({ tokens: 0, searches: 0 }); // Fix 6: Reset usage
     setStressTestResult(null); setFailedPhases([]); setLogs(['Initiating engines...']);
@@ -447,7 +450,7 @@ export default function Home() {
     <main className="min-h-screen p-8 lg:p-24 bg-[radial-gradient(circle_at_50%_0%,#1a1a1a_0%,#0a0a0a_100%)] text-white font-sans scroll-smooth print:bg-white print:text-black">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        {!showFullReport && (
+        {(activeTab !== 'dossier' && activeTab !== 'scoreboard') && !result && (
           <header className="mb-16 text-center animate-fade-in print:hidden">
             <h1 className="text-6xl font-black mb-4 tracking-tighter">
               CO<span className="text-purple-500">VALIDATOR</span>
@@ -460,7 +463,7 @@ export default function Home() {
         )}
 
         {/* Surface Level Warning */}
-        {result?.dataQuality?.isSurfaceLevel && !showFullReport && (
+        {result?.dataQuality?.isSurfaceLevel && activeTab === 'dossier' && (
           <div className="max-w-4xl mx-auto mb-12 glass-card border-red-500 animate-bounce-subtle">
              <div className="flex gap-4 items-center mb-4">
                 <span className="text-4xl">⚠️</span>
@@ -474,7 +477,7 @@ export default function Home() {
         )}
 
         {/* Failed Phases Banner */}
-        {failedPhases.length > 0 && result && !showFullReport && (
+        {failedPhases.length > 0 && result && activeTab === 'dossier' && (
           <div className="max-w-4xl mx-auto mb-8 glass-card border-orange-500/50 !bg-orange-500/5">
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">⚡</span>
@@ -485,7 +488,7 @@ export default function Home() {
         )}
 
         {/* Input Form with Quality Coaching */}
-        {!result && phase === -1 && !showFullReport && (
+        {!result && phase === -1 && (
           <div className="max-w-2xl mx-auto glass-card animate-fade-in shadow-2xl shadow-purple-500/10">
             <h2 className="text-2xl font-bold mb-6 text-purple-400">Initialize Idea</h2>
             <form onSubmit={startInterrogation} className="space-y-6">
@@ -767,7 +770,7 @@ export default function Home() {
         )}
 
         {/* Loading / Progress State */}
-        {loading && !showFullReport && (
+        {loading && (
           <div className="max-w-2xl mx-auto space-y-8 text-center py-20 animate-fade-in">
             <div className="relative inline-block">
               <div className="w-32 h-32 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin shadow-lg shadow-purple-500/20" />
@@ -799,6 +802,11 @@ export default function Home() {
           </div>
         )}
 
+        {/* CommandCenter Navigation */}
+        {result && phase === 10 && (
+          <CommandCenter activeTab={activeTab} setActiveTab={setActiveTab} />
+        )}
+
         {/* Result Header Buttons */}
         {result && (
           <div className="flex justify-end gap-4 print:hidden mb-8 animate-fade-in flex-wrap">
@@ -806,7 +814,7 @@ export default function Home() {
                 setResult(null); 
                 setPhase(-1); 
                 setPhaseName(''); 
-                setShowFullReport(false); 
+                setActiveTab('dossier'); 
                 setChallenges(null); 
                 setRawData({}); 
                 setStressResults([]); 
@@ -820,10 +828,6 @@ export default function Home() {
                 className="px-6 py-2 border border-green-500/50 rounded-full text-xs font-black uppercase tracking-widest hover:bg-green-500/10 transition-all text-green-400">
                 + New Audit
              </button>
-             <button onClick={() => setShowFullReport(!showFullReport)}
-                className="px-6 py-2 border border-purple-500 rounded-full text-xs font-black uppercase tracking-widest hover:bg-purple-500/10 transition-all text-purple-400">
-                {showFullReport ? 'View Scoreboard' : 'View Full Dossier'}
-             </button>
              <button onClick={() => window.print()}
                 className="px-6 py-2 border border-white/20 rounded-full text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all text-gray-400">
                 Export PDF
@@ -836,7 +840,7 @@ export default function Home() {
         )}
 
         {/* STRATEGIC DOSSIER VIEW */}
-        {result && showFullReport && (
+        {result && activeTab === 'dossier' && (
           <div className="animate-fade-in space-y-20 pb-24 dossier-view relative print:space-y-8">
              {/* 0. Strategic Ground Truth Header */}
              <div className="mb-12 animate-slide-up">
@@ -1891,7 +1895,7 @@ export default function Home() {
                      setResult(null);
                      setPhase(-1);
                      setPhaseName('');
-                     setShowFullReport(false);
+                     setActiveTab('dossier');
                      setChallenges(null);
                      setRawData({});
                      setStressResults([]);
@@ -1907,6 +1911,16 @@ export default function Home() {
                 </button>
              </div>
           </div>
+        )}
+
+        {/* SPRINT PLAN VIEW */}
+        {result && activeTab === 'sprint' && (
+          <SprintPlan idea={idea} auditResult={result} />
+        )}
+
+        {/* ASSUMPTION TRACKER VIEW */}
+        {result && activeTab === 'assumptions' && (
+          <AssumptionTracker idea={idea} auditResult={result} />
         )}
       </div>
     </main>
