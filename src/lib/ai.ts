@@ -3,11 +3,11 @@ import crypto from 'crypto';
 import { retryWithBackoff } from './retryHandler';
 
 const API_KEYS = [
-  process.env.OPENAI_API_KEY || '',
-  process.env.OPENAI_API_KEY_2 || '',
-  process.env.OPENAI_API_KEY_3 || '',
-  process.env.OPENAI_API_KEY_4 || '',
-  process.env.OPENAI_API_KEY_5 || '',
+  process.env.LONGCAT_API_KEY || process.env.OPENAI_API_KEY || '',
+  process.env.LONGCAT_API_KEY_2 || process.env.OPENAI_API_KEY_2 || '',
+  process.env.LONGCAT_API_KEY_3 || process.env.OPENAI_API_KEY_3 || '',
+  process.env.LONGCAT_API_KEY_4 || process.env.OPENAI_API_KEY_4 || '',
+  process.env.LONGCAT_API_KEY_5 || process.env.OPENAI_API_KEY_5 || '',
 ].filter(Boolean);
 
 function getKeyForPulse(pulse: string): string {
@@ -19,6 +19,7 @@ function getKeyForPulse(pulse: string): string {
 
 const getClient = (pulse: string) => new OpenAI({
   apiKey: getKeyForPulse(pulse),
+  baseURL: process.env.LONGCAT_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.longcat.chat/openai',
 });
 
 export async function think(
@@ -32,7 +33,7 @@ export async function think(
   try {
     const response = await retryWithBackoff(async () => {
       return await getClient(pulse).chat.completions.create({
-        model: "gpt-4o",
+        model: process.env.LLM_MODEL || "LongCat-Flash-Chat",
         messages,
         response_format: { type: "json_object" },
       });
