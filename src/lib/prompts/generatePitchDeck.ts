@@ -14,7 +14,7 @@ Target Audience: ${idea.targetAudience}
 AUDIT RESULTS:
 Verdict: ${auditResult.verdict}
 Core Bet: ${auditResult.coreBet}
-Critical Assumptions: ${auditResult.criticalAssumptionStack?.join(' | ')}
+Critical Assumptions: ${auditResult.criticalAssumptionStack?.map((a: any) => typeof a === 'string' ? a : a.assumption).join(' | ')}
 
 TASK:
 Generate a 10-slide pitch deck. Each slide must be punchy, hype-free, and address the reality of the market.

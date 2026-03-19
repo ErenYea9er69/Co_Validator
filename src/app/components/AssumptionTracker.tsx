@@ -39,12 +39,15 @@ export default function AssumptionTracker({ idea, auditResult }: AssumptionTrack
 
     // Default init from auditResult
     if (auditResult?.criticalAssumptionStack) {
-      const initial = auditResult.criticalAssumptionStack.map((txt: string, i: number) => ({
-        id: `assume-${i}`,
-        text: txt,
-        status: 'unvalidated',
-        evidence: []
-      }));
+      const initial = auditResult.criticalAssumptionStack.map((item: any, i: number) => {
+        const text = typeof item === 'string' ? item : (item.assumption || JSON.stringify(item));
+        return {
+          id: `assume-${i}`,
+          text: text,
+          status: 'unvalidated',
+          evidence: []
+        };
+      });
       setAssumptions(initial);
     }
   }, [auditResult]);

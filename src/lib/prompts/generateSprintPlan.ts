@@ -41,7 +41,7 @@ The Core Bet: ${auditResult.coreBet}
 Stop Signal: ${auditResult.stopSignal}
 
 CRITICAL ASSUMPTIONS TO PROVE:
-${auditResult.criticalAssumptionStack?.map((a: any, i: number) => `${i + 1}. ${a}`).join('\n')}
+${auditResult.criticalAssumptionStack?.map((a: any, i: number) => `${i + 1}. ${typeof a === 'string' ? a : a.assumption}`).join('\n')}
 
 Generate a brutal, highly tactical 7-day sprint plan to test the above assumptions.
 `;
