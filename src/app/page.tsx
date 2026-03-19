@@ -213,11 +213,18 @@ export default function Home() {
     ]);
 
     wave1.forEach((w, i) => {
+      const labels = ['Problem Reality', 'Competitor Investigation', 'Build Feasibility', 'Market & Monetization', 'Founder-Market Fit', 'Synthetic Primary Research'];
       if (w.status === 'fulfilled') {
         const res = w.value as any;
         trackUsage(res);
         setCompletedSteps(prev => prev + 1);
         
+        // Fix 9: Immediate parse error detection
+        if (res.result?._parseError) {
+          failed.push(`${labels[i]} (Data Corrupted)`);
+          addLog(`⚠️ ${labels[i]} corrupted`);
+        }
+
         switch(i) {
           case 0: p1 = res; setRawData((prev: any) => ({ ...prev, p1 })); if (res.searchResults) evidence['problem_evidence'] = res.searchResults; addLog('Problem reality ✓'); break;
           case 1: p2 = res; setRawData((prev: any) => ({ ...prev, p2 })); if (res.searchResults) evidence['competitor_scan'] = res.searchResults; addLog('Competitors ✓'); break;
@@ -227,11 +234,11 @@ export default function Home() {
           case 5: syntheticData = res; setRawData((prev: any) => ({ ...prev, syntheticData })); if (res.searchResults) evidence['synthetic_primary_signals'] = res.searchResults; addLog('Synthetic Primary Research ✓'); break;
         }
       } else {
-        const labels = ['Problem Reality', 'Competitor Investigation', 'Build Feasibility', 'Market & Monetization', 'Founder-Market Fit', 'Synthetic Primary Research'];
         failed.push(labels[i]);
         addLog(`⚠️ ${labels[i]} failed`);
       }
     });
+
 
 
     // ═══ CIRCUIT BREAKER: Abort if 3+ Wave 1 phases failed ═══
@@ -254,11 +261,17 @@ export default function Home() {
     ]);
 
     wave2.forEach((w, i) => {
+      const labels = ['Saturation Risk', 'Differentiation', 'Regulatory Fortress', 'Financial Engine'];
       if (w.status === 'fulfilled') {
-        const res = w.value;
+        const res = w.value as any;
         trackUsage(res);
         setCompletedSteps(prev => prev + 1);
         
+        if (res.result?._parseError) {
+          failed.push(`${labels[i]} (Data Corrupted)`);
+          addLog(`⚠️ ${labels[i]} corrupted`);
+        }
+
         switch(i) {
           case 0: p3 = res; setRawData((prev: any) => ({ ...prev, p3 })); addLog('Saturation risk ✓'); break;
           case 1: p6 = res; setRawData((prev: any) => ({ ...prev, p6 })); addLog('Differentiation ✓'); break;
@@ -266,7 +279,6 @@ export default function Home() {
           case 3: setRawData((prev: any) => ({ ...prev, p10: res })); addLog('Financial engine ✓'); break;
         }
       } else {
-        const labels = ['Saturation Risk', 'Differentiation', 'Regulatory Fortress', 'Financial Engine'];
         failed.push(labels[i]);
         addLog(`⚠️ ${labels[i]} failed`);
       }
@@ -1062,38 +1074,38 @@ export default function Home() {
               </section>
 
               {/* V. Psychological Friction */}
-              {rawData.p5?.result && (
+              {rawData.apathy?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.7s' }}>
                    <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
-                      <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">V</span>
+                      <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30 font-mono">V</span>
                       PSYCHOLOGICAL FRICTION
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="glass-card">
                          <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Cognitive Load</h4>
-                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.result.cognitiveLoad)}"</p>
+                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.apathy.result.cognitiveLoad)}"</p>
                          <div className="mt-6 flex gap-4">
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Decision Fatigue</span>
-                               <span className="font-black text-orange-400">{rawData.p5.result.decisionFatigue || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.apathy.result.decisionFatigue || "N/A"}</span>
                             </div>
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Learning Curve</span>
-                               <span className="font-black text-orange-400">{rawData.p5.result.learningCurve || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.apathy.result.learningCurve || "N/A"}</span>
                             </div>
                          </div>
                       </div>
                       <div className="glass-card">
                          <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Emotional Barriers</h4>
-                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.p5.result.emotionalBarriers)}"</p>
+                         <p className="text-lg text-gray-300 leading-relaxed font-medium italic">"{renderSafe(rawData.apathy.result.emotionalBarriers)}"</p>
                          <div className="mt-6 flex gap-4">
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Trust Deficit</span>
-                               <span className="font-black text-orange-400">{rawData.p5.result.trustDeficit || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.apathy.result.trustDeficit || "N/A"}</span>
                             </div>
                             <div className="flex-1 p-4 bg-white/5 rounded-xl text-center border border-white/5">
                                <span className="text-[10px] text-gray-500 uppercase block mb-1">Fear of Change</span>
-                               <span className="font-black text-orange-400">{rawData.p5.result.fearOfChange || "N/A"}</span>
+                               <span className="font-black text-orange-400">{rawData.apathy.result.fearOfChange || "N/A"}</span>
                             </div>
                          </div>
                       </div>
@@ -1613,17 +1625,22 @@ export default function Home() {
                       <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 font-mono">XVI</span>
                       THE INDUSTRIAL ROADMAP (BLITZ)
                    </h3>
-                   <div className="grid lg:grid-cols-4 gap-4">
-                      {result.roadmap.weeks?.map((w: any) => (
-                        <div key={w.week} className="glass-card border-t-4 border-purple-500">
-                           <h4 className="text-lg font-black text-white mb-2 underline decoration-purple-500/50">WEEK {w.week}</h4>
-                           <p className="text-[10px] text-purple-400 uppercase font-black mb-4">{w.focus}</p>
+                   <div className="grid lg:grid-cols-3 gap-6">
+                      {result.roadmap.phases?.map((p: any, idx: number) => (
+                        <div key={idx} className="glass-card border-t-4 border-purple-500 transition-all hover:translate-y-[-4px]">
+                           <div className="flex justify-between items-start mb-4">
+                              <h4 className="text-lg font-black text-white underline decoration-purple-500/50">{p.name}</h4>
+                              <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full font-black">{p.duration}</span>
+                           </div>
                            <ul className="space-y-4">
-                              {w.tasks?.map((t: any, idx: number) => (
-                                <li key={idx} className="group">
+                              {p.tasks?.map((t: any, tidx: number) => (
+                                <li key={tidx} className="group">
                                    <div className="flex gap-3">
-                                      <span className="w-5 h-5 flex-shrink-0 border border-white/20 rounded flex items-center justify-center text-[10px] font-bold">{t.day}</span>
-                                      <p className="text-xs text-gray-300 leading-tight">{t.task}</p>
+                                      <span className={`w-2 h-2 mt-1.5 flex-shrink-0 rounded-full ${t.priority === 'High' ? 'bg-red-500' : t.priority === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'}`} />
+                                      <div>
+                                         <p className="text-sm text-gray-200 font-bold leading-tight">{t.task}</p>
+                                         <p className="text-[10px] text-gray-500 mt-1">{t.description}</p>
+                                      </div>
                                    </div>
                                 </li>
                               ))}

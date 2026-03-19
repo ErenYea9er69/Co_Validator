@@ -25,6 +25,13 @@ Return a JSON object:
     { "question": "...", "whyItMatters": "...", "riskIfUnanswered": "High | Med | Low" }
   ],
   "complianceMoat": "Strategy to turn hurdles into defensive barriers.",
+  "regulatoryFriction": number, // 0-10
+  "complianceMoatStrategy": "string",
+  "requiredCompliances": ["string"],
+  "ipScore": number, // 0-100
+  "keyLandmines": [
+    { "type": "...", "risk": "...", "severity": "..." }
+  ],
   "requiredAdvisors": [
     { "persona": "...", "expertiseRequired": "...", "hiringPriority": "Immediate | Post-Seed" }
   ],

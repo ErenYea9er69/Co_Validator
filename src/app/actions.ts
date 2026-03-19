@@ -30,75 +30,85 @@ import { apathySimulator } from '@/lib/prompts/apathySimulator';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 function checkAuth() {
-  if (process.env.AUDIT_SECRET && process.env.NODE_ENV === 'production') {
-    return true;
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.AUDIT_SECRET) {
+      throw new Error('UNAUTHORIZED: AUDIT_SECRET missing in production');
+    }
   }
 }
 
 
 
-// New: Founder-Market Fit Phase
 export async function runFounderFit(idea: any) {
+  checkAuth();
   const ideaStr = `Name: ${idea.name}\nProblem: ${idea.problem}\nSolution: ${idea.solution}`;
   const founderData = `Experience: ${idea.founderBackground}\nCo-Founders: ${idea.coFounders}\nBudget: ${idea.budget}`;
   
   const result = await validateFounderFit(ideaStr, founderData);
-  return { result, usage: {} }; 
+  return { result: safeJsonParse(result, {}, 'Founder Fit'), usage: {} }; 
 }
 
 export async function runInterrogation(idea: any, phaseContext: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await interrogateIdea(ideaStr, phaseContext, [], "None");
-  return safeJsonParse(raw);
+  return safeJsonParse(raw, {}, 'Interrogation');
 }
 
 export async function runPhase7Roadmap(idea: any, researchSummary: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await generateRoadmap(ideaStr, researchSummary);
-  return { raw, result: safeJsonParse(raw) };
+  return { raw, result: safeJsonParse(raw, {}, 'Roadmap') };
 }
 
 export async function runPhase9Regulatory(idea: any, researchSummary: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await regulatoryAnalysis(ideaStr, researchSummary);
-  return { raw, result: safeJsonParse(raw) };
+  return { raw, result: safeJsonParse(raw, {}, 'Regulatory') };
 }
 
 export async function runPhase10Financial(idea: any, researchSummary: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await financialAnalysis(ideaStr, researchSummary);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Financial'), raw, usage: {} };
 }
 
 export async function runDebateEngine(idea: any, researchSummary: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await runDebate(ideaStr, researchSummary);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Debate'), raw, usage: {} };
 }
 
 
 export async function runInputInterrogation(idea: any) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await inputInterrogation(ideaStr);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Input Interrogation'), raw, usage: {} };
 }
 
 export async function runSyntheticResearch(idea: any) {
+  checkAuth();
   const queries = [
     `${idea.industry} ${idea.targetAudience} pain points reddit`,
-    `${idea.name} ${idea.category} competitors ${idea.locale}`,
-    `${idea.solution.substring(0, 50)} customer acquisition cost ${idea.acquisitionChannel}`
+    `${idea.name} ${idea.industry} competitors ${idea.locale}`,
+    `${idea.solution.substring(0, 50)} customer acquisition cost ${idea.acquisitionChannel || 'general marketing'}`
   ];
   
   const searchResults = await searchSyntheticPrimary(queries);
   const summary = searchResults.results.map(r => `[${r.title}](${r.url}): ${r.content}`).join('\n\n');
   
   const result = await syntheticResearch(JSON.stringify(idea), summary);
-  return { result: safeJsonParse(result), summary, usage: {}, tavilyCredits: queries.length * 2, searchResults: searchResults.results };
+  return { result: safeJsonParse(result, {}, 'Synthetic Research'), summary, usage: {}, tavilyCredits: queries.length * 2, searchResults: searchResults.results };
 }
 
 // FIX: Pass Tavily answer to prompts as "Research Summary"
 export async function runPhase1Problem(idea: any, initialContext: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const evidence = await verifyProblem(idea.problem, idea.industry);
   const researchInput = evidence.answer
@@ -109,27 +119,30 @@ export async function runPhase1Problem(idea: any, initialContext: string) {
     + (idea.tractionEvidence ? `\nTRACTION EVIDENCE: ${idea.tractionEvidence}` : '')
     + (idea.tractionDocs ? `\nTRACTION ARTIFACTS/DOCS: ${idea.tractionDocs}` : '');
   const raw = await validateProblem(ideaStr + contextStr + "\nCONTEXT: " + initialContext, researchInput);
-  return { result: safeJsonParse(raw), raw, searchResults: evidence.results, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Problem'), raw, searchResults: evidence.results, usage: {} };
 }
 
 // FIX: Pass competitorsInfo to smarter Tavily search + attach Tavily answer
 export async function runPhase2Competitors(idea: any, competitorsInfo: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const compResults = await searchCompetitors(idea.name, idea.industry, competitorsInfo);
   const researchInput = compResults.answer
     ? `RESEARCH SUMMARY:\n${compResults.answer}\n\nRAW RESULTS:\n${JSON.stringify(compResults.results)}`
     : JSON.stringify(compResults.results);
   const raw = await validateCompetitors(ideaStr + "\nUSER COMPETITOR INFO: " + competitorsInfo, researchInput);
-  return { result: safeJsonParse(raw), raw, searchResults: compResults.results, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Competitors'), raw, searchResults: compResults.results, usage: {} };
 }
 
 export async function runPhase3Competition(idea: any, p2Raw: string) {
+  checkAuth();
   const raw = await validateCompetition(JSON.stringify(idea), p2Raw);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Saturation'), raw, usage: {} };
 }
 
 // UPDATED: Feasibility now evaluates based on founder background and budget
 export async function runPhase4Feasibility(idea: any) {
+  checkAuth();
   const context = `
     STARTUP STAGE: ${idea.stage}. 
     FOUNDER BACKGROUND: ${idea.founderBackground}. 
@@ -142,6 +155,7 @@ export async function runPhase4Feasibility(idea: any) {
 
 // FIX: Pass monetization input to Market phase
 export async function runPhase5Market(idea: any) {
+  checkAuth();
   const pricingResults = await searchPricing(idea.name, idea.industry);
   const researchInput = pricingResults.answer
     ? `RESEARCH SUMMARY:\n${pricingResults.answer}\n\nRAW RESULTS:\n${JSON.stringify(pricingResults.results)}`
@@ -153,36 +167,41 @@ export async function runPhase5Market(idea: any) {
     + (idea.targetAudience ? `\nTARGET CUSTOMER: ${idea.targetAudience}` : '')
     + (idea.locale ? `\nLOCALE: ${idea.locale}` : '');
   const raw = await validateMarket(ideaWithMonetization, researchInput);
-  return { result: safeJsonParse(raw), raw, searchResults: pricingResults.results, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Market'), raw, searchResults: pricingResults.results, usage: {} };
 }
 
 export async function runPhase6Differentiation(idea: any, p2Raw: string) {
+  checkAuth();
   const context = idea.acquisitionChannel ? `\nPROPOSED ACQUISITION CHANNEL: ${idea.acquisitionChannel}` : '';
   const raw = await validateDifferentiation(JSON.stringify(idea) + context, p2Raw);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Differentiation'), raw, usage: {} };
 }
 
 // FIX: Pre-Mortem — no founderDNA, uses real phase data
 export async function runPreMortem(idea: any, phaseResearchSummary: string) {
+  checkAuth();
   const raw = await preMortemSimulation(JSON.stringify(idea), phaseResearchSummary, []);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Pre-Mortem'), raw, usage: {} };
 }
 
 export async function runPhase7Failures(idea: any, simResponse: any, context: any) {
+  checkAuth();
   const raw = await validateFailures(JSON.stringify(idea) + "\nRESPONSE: " + JSON.stringify(simResponse), JSON.stringify(context));
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Expert Stress Test'), raw, usage: {} };
 }
 
 export async function runCompetitiveResponse(idea: any, researchSummary: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await competitiveResponse(ideaStr, researchSummary);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Competitive Response'), raw, usage: {} };
 }
 
 export async function runApathySimulation(idea: any, researchSummary: string) {
+  checkAuth();
   const ideaStr = JSON.stringify(idea);
   const raw = await apathySimulator(ideaStr, researchSummary);
-  return { result: safeJsonParse(raw), raw, usage: {} };
+  return { result: safeJsonParse(raw, {}, 'Apathy'), raw, usage: {} };
 }
 
 export async function finalizeAudit(idea: any, researchContext: string, interrogationAnswers: any[]) {
@@ -206,6 +225,7 @@ export async function finalizeAudit(idea: any, researchContext: string, interrog
 
 // Stress Test refactored for qualitative analysis
 export async function runStressTest(idea: any, change: string, auditSummary: { assumptions: any; reasoning: string }) {
+  checkAuth();
   const systemPrompt = `You are the "Strategic Stress Test Engine". 
 Evaluate how a proposed pivot or change affects the startup's "Critical Assumption Stack".
 Identify which assumptions are resolved, which are created, and how the overall risk profile shifts.
@@ -213,6 +233,10 @@ Identify which assumptions are resolved, which are created, and how the overall 
 You MUST respond with valid JSON:
 {
   "impact": "Positive" | "Negative" | "Neutral",
+  "verdict": "Positive | Negative | Neutral",
+  "logic": "Detailed strategic reasoning for the shift.",
+  "mitigation": "What needs to be done to handle this change.",
+  "pivotPath": "A specific recommendation for the next move.",
   "shiftReasoning": "string",
   "assumptionDeltas": [
     { "assumption": "name", "originalRisk": "string", "newRisk": "string", "logic": "why" }

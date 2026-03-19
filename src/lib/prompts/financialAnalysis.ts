@@ -38,11 +38,24 @@ TASK:
         "minTargetACV": "$Z",
         "burnToFirstMilestone": "$A"
       },
+      "breakevenConditions": "Specific milestones required to stop the bleed.",
       "operationalStressors": [
         { "risk": "...", "impact": "High | Med", "mitigation": "..." }
       ],
-      "exitEcosystem": [
-        { "acquirer": "...", "strategicLogic": "..." }
+      "stressTests": [
+        { "scenario": "...", "impact": "...", "survivalStrategy": "..." }
+      ],
+      "unitEconomics": {
+        "cacTarget": number,
+        "ltvProjection": number,
+        "paybackPeriod": "months",
+        "marginProfile": "percentage"
+      },
+      "fundingRequiredToScale": "Estimated capital needed for next stage.",
+      "capitalIntensity": "Low | Moderate | High",
+      "exitScore": number, // 0-100
+      "exitScenarios": [
+        { "acquirer": "...", "estimatedMultiple": "...", "logic": "..." }
       ],
       "unitEconomicsLogic": "Summary of the 'gritty reality' of the next 6 months."
     }

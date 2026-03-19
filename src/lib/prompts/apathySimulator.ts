@@ -28,6 +28,12 @@ TASK:
       "psychologicalFriction": [
         { "point": "...", "reason": "...", "severity": "High | Med | Low" }
       ],
+      "cognitiveLoad": "...",
+      "decisionFatigue": "...",
+      "learningCurve": "...",
+      "emotionalBarriers": "...",
+      "trustDeficit": "...",
+      "fearOfChange": "...",
       "empiricalTest": {
         "proposition": "A 1-sentence plain text value prop.",
         "threshold": "e.g. 10 signups / 50 clicks",

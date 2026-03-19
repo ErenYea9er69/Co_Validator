@@ -253,7 +253,7 @@ export async function deepScrape(urls: string[]): Promise<any[]> {
   
   const response = await retryWithBackoff(async () => {
     try {
-      const res = await getClient().extract(urls);
+      const res = await getClient(urls.join(',')).extract(urls);
       return res;
     } catch (error: any) {
       console.error(`[Tavily] Extract error:`, error?.message || error);
