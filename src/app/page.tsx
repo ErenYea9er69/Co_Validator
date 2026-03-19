@@ -1925,7 +1925,7 @@ export default function Home() {
 
         {/* ASSUMPTION TRACKER VIEW */}
         {result && activeTab === 'assumptions' && (
-          <AssumptionTracker idea={idea} auditResult={result} />
+          <AssumptionTracker idea={idea} auditResult={result} onRescoreComplete={(newResult) => setResult(newResult)} />
         )}
 
         {/* COMPETITOR WATCH VIEW */}
@@ -1940,12 +1940,12 @@ export default function Home() {
 
         {/* PITCH DECK VIEW */}
         {result && activeTab === 'pitchdeck' && (
-          <PitchDeck idea={idea} auditResult={result} />
+          <PitchDeck idea={idea} auditResult={result} rawData={result} />
         )}
 
         {/* INVESTOR MATCH VIEW */}
         {result && activeTab === 'investor' && (
-          <InvestorMatch idea={idea} auditResult={result} />
+          <InvestorMatch idea={idea} auditResult={result} rawData={result} />
         )}
 
         {/* PIVOT SIMULATOR VIEW */}

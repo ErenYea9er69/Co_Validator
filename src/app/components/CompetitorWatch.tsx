@@ -16,6 +16,12 @@ interface CompetitorIntel {
   newFeaturesOrPricing: string;
   fundingOrMNA: string;
   lastChecked: string;
+  previousIntel?: {
+    status: string;
+    intelSummary: string;
+    newFeaturesOrPricing: string;
+    fundingOrMNA: string;
+  };
 }
 
 export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps) {
@@ -23,7 +29,6 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    // 1. Try to load saved intel from localStorage
     const saved = localStorage.getItem('co-validator-competitor-intel');
     if (saved) {
       try {
@@ -32,7 +37,6 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
       } catch (e) {}
     }
 
-    // 2. Otherwise extract from rawData.p2 (validateCompetitors)
     const p2Result = rawData?.p2?.result;
     if (p2Result?.directCompetitors && Array.isArray(p2Result.directCompetitors)) {
       const initial = p2Result.directCompetitors.map((c: any) => ({
@@ -55,33 +59,63 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
     }
   }, [competitors]);
 
-  const refreshIntel = async (index: number) => {
-    setLoadingIndex(index);
+  const performRefresh = async (index: number) => {
     try {
       const token = localStorage.getItem('AUDIT_SECRET') || undefined;
       const comp = competitors[index];
-      const res = await actions.refreshCompetitorIntel(comp.name, idea.industry || 'Tech', token);
+      const description = `${comp.moat} ${comp.weakness}`;
+      const res = await actions.refreshCompetitorIntel(comp.name, description, token);
       
       if (res.result) {
         setCompetitors(prev => {
           const next = [...prev];
+          const current = next[index];
+          
+          const previousIntel = {
+            status: current.status,
+            intelSummary: current.intelSummary,
+            newFeaturesOrPricing: current.newFeaturesOrPricing,
+            fundingOrMNA: current.fundingOrMNA
+          };
+
           next[index] = {
-            ...next[index],
+            ...current,
             status: res.result.status || 'Unknown',
             intelSummary: res.result.intelSummary || 'No summary available.',
             newFeaturesOrPricing: res.result.newFeaturesOrPricing || 'None found',
             fundingOrMNA: res.result.fundingOrMNA || 'None found',
-            lastChecked: new Date().toLocaleString()
+            lastChecked: new Date().toLocaleString(),
+            previousIntel: current.status !== 'Unknown' ? previousIntel : undefined
           };
           return next;
         });
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to refresh competitor intel.");
-    } finally {
-      setLoadingIndex(null);
     }
+  };
+
+  const refreshIntel = async (index: number) => {
+    if (loadingIndex !== null) return;
+    setLoadingIndex(index);
+    await performRefresh(index);
+    setLoadingIndex(null);
+  };
+
+  const scanAll = async () => {
+    if (loadingIndex !== null) return;
+    setLoadingIndex(-1);
+    await Promise.all(competitors.map((_, i) => performRefresh(i)));
+    setLoadingIndex(null);
+  };
+
+  const DiffTag = ({ current, previous }: { current: string, previous?: string }) => {
+    if (!previous || current === previous || previous === 'Unknown' || previous.startsWith('Click')) return null;
+    return (
+      <span className="ml-2 px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[8px] font-black uppercase rounded border border-blue-500/30 animate-pulse">
+        Changed
+      </span>
+    );
   };
 
   if (competitors.length === 0) {
@@ -95,12 +129,20 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
         <p className="text-gray-400 text-sm max-w-xl mx-auto">
           Startups don't operate in a vacuum. Monitor your "Boss Competitors" for live feature launches, pricing changes, or funding rounds.
         </p>
+        <div className="pt-4">
+          <button 
+            onClick={scanAll}
+            disabled={loadingIndex !== null}
+            className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-full border border-white/10 transition-all disabled:opacity-50"
+          >
+            {loadingIndex === -1 ? 'Scanning All...' : '⚡ Scan All Competitors'}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-6">
         {competitors.map((comp, i) => (
           <div key={i} className="bg-black/60 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all flex flex-col md:flex-row">
-            {/* Sidebar info */}
             <div className="p-6 md:w-1/3 bg-white/5 border-b md:border-b-0 md:border-r border-white/10 flex flex-col justify-between">
               <div>
                 <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-2">{comp.name}</h3>
@@ -129,7 +171,6 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
               </div>
             </div>
 
-            {/* Live Intel Panel */}
             <div className="p-6 md:w-2/3 space-y-6">
               <div className="flex justify-between items-start">
                 <div>
@@ -142,6 +183,7 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
                   }`}>
                     {comp.status}
                   </span>
+                  <DiffTag current={comp.status} previous={comp.previousIntel?.status} />
                 </div>
               </div>
               
@@ -149,15 +191,22 @@ export default function CompetitorWatch({ idea, rawData }: CompetitorWatchProps)
                 <p className={`text-sm leading-relaxed ${comp.intelSummary.startsWith('Click') ? 'text-gray-500 italic' : 'text-white'}`}>
                   {comp.intelSummary}
                 </p>
+                <DiffTag current={comp.intelSummary} previous={comp.previousIntel?.intelSummary} />
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-black/40 border border-white/5 rounded-xl">
-                  <span className="text-[10px] uppercase font-black text-blue-400 tracking-widest block mb-2">Product & Pricing</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase font-black text-blue-400 tracking-widest block">Product & Pricing</span>
+                    <DiffTag current={comp.newFeaturesOrPricing} previous={comp.previousIntel?.newFeaturesOrPricing} />
+                  </div>
                   <p className="text-xs text-gray-400 leading-relaxed">{comp.newFeaturesOrPricing}</p>
                 </div>
                 <div className="p-4 bg-black/40 border border-white/5 rounded-xl">
-                  <span className="text-[10px] uppercase font-black text-orange-400 tracking-widest block mb-2">Funding & M&A</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase font-black text-orange-400 tracking-widest block">Funding & M&A</span>
+                    <DiffTag current={comp.fundingOrMNA} previous={comp.previousIntel?.fundingOrMNA} />
+                  </div>
                   <p className="text-xs text-gray-400 leading-relaxed">{comp.fundingOrMNA}</p>
                 </div>
               </div>

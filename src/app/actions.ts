@@ -185,9 +185,9 @@ export async function runStressTest(idea: any, change: string, auditSummary: { a
   return { result: safeJsonParse(raw), usage: {} };
 }
 
-export async function runSprintPlan(idea: any, auditResult: any, token?: string) {
+export async function runSprintPlan(idea: any, auditResult: any, token?: string, previousWeekSummary?: string) {
   checkAuth(token);
-  const raw = await generateSprintPlan(idea, auditResult);
+  const raw = await generateSprintPlan(idea, auditResult, previousWeekSummary);
   return { result: safeJsonParse(raw, {}, 'Sprint Plan'), raw };
 }
 
@@ -197,11 +197,11 @@ export async function rescoreAudit(idea: any, originalAudit: any, evidenceLog: a
   return { result: safeJsonParse(raw, {}, 'Rescore Audit'), raw };
 }
 
-export async function refreshCompetitorIntel(competitorName: string, industry: string, token?: string) {
+export async function refreshCompetitorIntel(competitorName: string, competitorDescription: string, token?: string) {
   checkAuth(token);
   
   // 1. Search for recent news and updates about the competitor
-  const searchQuery = `${competitorName} ${industry} startup news pricing features`;
+  const searchQuery = `${competitorName} ${competitorDescription} startup product updates pricing funding`;
   const recentNewsRaw = await search(searchQuery, {
     searchDepth: 'advanced', // Need deep search
     maxResults: 5,
@@ -214,14 +214,14 @@ export async function refreshCompetitorIntel(competitorName: string, industry: s
   return { result: safeJsonParse(raw, {}, 'Competitor Intel'), raw };
 }
 
-export async function createPitchDeck(idea: any, auditResult: any, token?: string) {
+export async function createPitchDeck(idea: any, auditResult: any, rawData?: any, token?: string) {
   checkAuth(token);
-  const raw = await generatePitchDeck(idea, auditResult);
+  const raw = await generatePitchDeck(idea, auditResult, rawData);
   return { result: safeJsonParse(raw, {}, 'Pitch Deck'), raw };
 }
 
-export async function matchInvestors(idea: any, auditResult: any, token?: string) {
+export async function matchInvestors(idea: any, auditResult: any, rawData?: any, token?: string) {
   checkAuth(token);
-  const raw = await generateInvestorMatch(idea, auditResult);
+  const raw = await generateInvestorMatch(idea, auditResult, rawData);
   return { result: safeJsonParse(raw, {}, 'Investor Match'), raw };
 }
