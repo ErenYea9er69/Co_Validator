@@ -6,6 +6,11 @@ import Roadmap from './components/Roadmap';
 import CommandCenter, { TabId } from './components/CommandCenter';
 import SprintPlan from './components/SprintPlan';
 import AssumptionTracker from './components/AssumptionTracker';
+import CompetitorWatch from './components/CompetitorWatch';
+import Benchmarks from './components/Benchmarks';
+import PitchDeck from './components/PitchDeck';
+import InvestorMatch from './components/InvestorMatch';
+import PivotSimulator from './components/PivotSimulator';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 
@@ -1921,6 +1926,31 @@ export default function Home() {
         {/* ASSUMPTION TRACKER VIEW */}
         {result && activeTab === 'assumptions' && (
           <AssumptionTracker idea={idea} auditResult={result} />
+        )}
+
+        {/* COMPETITOR WATCH VIEW */}
+        {result && activeTab === 'competitors' && (
+          <CompetitorWatch idea={idea} rawData={rawData} />
+        )}
+
+        {/* BENCHMARKS VIEW */}
+        {result && activeTab === 'benchmarks' && (
+          <Benchmarks idea={idea} auditResult={result} rawData={rawData} />
+        )}
+
+        {/* PITCH DECK VIEW */}
+        {result && activeTab === 'pitchdeck' && (
+          <PitchDeck idea={idea} auditResult={result} />
+        )}
+
+        {/* INVESTOR MATCH VIEW */}
+        {result && activeTab === 'investor' && (
+          <InvestorMatch idea={idea} auditResult={result} />
+        )}
+
+        {/* PIVOT SIMULATOR VIEW */}
+        {result && activeTab === 'pivot' && (
+          <PivotSimulator idea={idea} auditResult={result} />
         )}
       </div>
     </main>

@@ -1,7 +1,7 @@
 'use server';
 
 import { think } from '@/lib/ai';
-import { verifyProblem, searchCompetitors, searchPricing, searchSyntheticPrimary } from '@/lib/tavily';
+import { search, verifyProblem, searchCompetitors, searchPricing, searchSyntheticPrimary } from '@/lib/tavily';
 import { validateProblem } from '@/lib/prompts/validateProblem';
 import { validateCompetitors } from '@/lib/prompts/validateCompetitors';
 import { validateCompetition } from '@/lib/prompts/validateCompetition';
@@ -23,6 +23,9 @@ import { competitiveResponse } from '@/lib/prompts/competitiveResponse';
 import { apathySimulator } from '@/lib/prompts/apathySimulator';
 import { generateSprintPlan } from '@/lib/prompts/generateSprintPlan';
 import { rescoreWithEvidence } from '@/lib/prompts/rescoreAudit';
+import { generateCompetitorDiff } from '@/lib/prompts/generateCompetitorDiff';
+import { generatePitchDeck } from '@/lib/prompts/generatePitchDeck';
+import { generateInvestorMatch } from '@/lib/prompts/generateInvestorMatch';
 import { pivotEngine } from '@/lib/prompts/pivotEngine';
 import { stressTestSimulation } from '@/lib/prompts/stressTest';
 import { safeJsonParse } from '@/lib/safeJsonParse';
@@ -192,4 +195,33 @@ export async function rescoreAudit(idea: any, originalAudit: any, evidenceLog: a
   checkAuth(token);
   const raw = await rescoreWithEvidence(JSON.stringify(idea), JSON.stringify(originalAudit), JSON.stringify(evidenceLog));
   return { result: safeJsonParse(raw, {}, 'Rescore Audit'), raw };
+}
+
+export async function refreshCompetitorIntel(competitorName: string, industry: string, token?: string) {
+  checkAuth(token);
+  
+  // 1. Search for recent news and updates about the competitor
+  const searchQuery = `${competitorName} ${industry} startup news pricing features`;
+  const recentNewsRaw = await search(searchQuery, {
+    searchDepth: 'advanced', // Need deep search
+    maxResults: 5,
+    topic: 'news',
+    timeRange: 'month' // Limit to recent
+  });
+
+  // 2. Synthesize with AI
+  const raw = await generateCompetitorDiff(competitorName, JSON.stringify(recentNewsRaw));
+  return { result: safeJsonParse(raw, {}, 'Competitor Intel'), raw };
+}
+
+export async function createPitchDeck(idea: any, auditResult: any, token?: string) {
+  checkAuth(token);
+  const raw = await generatePitchDeck(idea, auditResult);
+  return { result: safeJsonParse(raw, {}, 'Pitch Deck'), raw };
+}
+
+export async function matchInvestors(idea: any, auditResult: any, token?: string) {
+  checkAuth(token);
+  const raw = await generateInvestorMatch(idea, auditResult);
+  return { result: safeJsonParse(raw, {}, 'Investor Match'), raw };
 }

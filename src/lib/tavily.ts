@@ -58,7 +58,7 @@ interface SearchOptions {
   useCache?: boolean;
 }
 
-async function search(
+export async function search(
   query: string,
   options: SearchOptions = {}
 ): Promise<{ results: SearchResult[]; answer?: string }> {
