@@ -38,10 +38,8 @@ Format your response as a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a master of strategic roadmapping. You focus on the shortest path to market-readiness.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'RoadmapGeneration');
 }

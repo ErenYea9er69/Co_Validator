@@ -1,14 +1,8 @@
 import { think } from '../ai';
 
 export async function validateFailures(idea: string, fullValidationContext: string): Promise<string> {
-  const messages = [
-    {
-      role: 'system' as const,
-      content: `You are a startup failure analyst. Phase 7: FAILURE SCENARIOS. List the top 5 reasons this startup would fail. Be brutally realistic. Don't sugarcoat.`,
-    },
-    {
-      role: 'user' as const,
-      content: `List the top 5 failure scenarios for this startup idea.
+  const prompt = `
+List the top 5 failure scenarios for this startup idea.
 
 IDEA:
 ${idea}
@@ -33,19 +27,20 @@ Output JSON:
       "name": "short threat name",
       "scenario": "what goes wrong",
       "trigger": "the specific event that triggers this failure",
-      "probability": 75,
+      "probability": "High | Medium | Low",
       "impact": "fatal | severe | manageable",
-      "mitigation": "how to reduce this risk"
+      "mitigation": "how to reduce this risk",
+      "fatalLoop": "the feedback loop that leads to death"
     }
   ],
   "mostLikelyDeathCause": "the single most likely way this dies",
   "founderTrap": "the execution trap founders fall into with this type of idea",
   "summary": "overall risk assessment"
-}`,
-    },
-  ];
-
-  const result = await think(messages, { jsonMode: true, temperature: 0.6 });
-  return result.content;
 }
+`;
 
+  return think([
+    { role: 'system', content: 'You are a startup failure analyst. Phase 7: FAILURE SCENARIOS. Be brutally realistic. Don\'t sugarcoat.' },
+    { role: 'user', content: prompt }
+  ], 'FailureAnalysis');
+}

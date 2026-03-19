@@ -29,10 +29,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a "Competitor Intelligence Officer" specialized in market landscape analysis.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'CompetitorAnalysis');
 }

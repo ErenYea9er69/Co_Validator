@@ -32,11 +32,8 @@ TASK:
     }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a elite VC talent scout specialized in founder-market fit. You look for "Authority" and "Execution Edge".' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'FounderFitAnalysis');
 }
-

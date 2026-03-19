@@ -274,6 +274,7 @@ export default function Home() {
       actions.runPhase10Financial(currentIdea, JSON.stringify({ p1, p2, p4, p5 }), auditToken),
     ]);
 
+    let p9: any = null, p10: any = null;
     wave2.forEach((w, i) => {
       const labels = ['Saturation Risk', 'Differentiation', 'Regulatory Fortress', 'Financial Engine'];
       if (w.status === 'fulfilled') {
@@ -289,8 +290,8 @@ export default function Home() {
         switch(i) {
           case 0: p3 = res; break;
           case 1: p6 = res; break;
-          case 2: break; // p9 is handled via setRawData below
-          case 3: break; // p10 is handled via setRawData below
+          case 2: p9 = res; break;
+          case 3: p10 = res; break;
         }
       } else {
         failed.push(labels[i]);
@@ -300,7 +301,7 @@ export default function Home() {
 
     // Fix 13: Incremental save after Wave 2
     setRawData((prev: any) => {
-        const updated = { ...prev, p3, p6 };
+        const updated = { ...prev, p3, p6, p9, p10 };
         localStorage.setItem('audit-in-progress', JSON.stringify({ idea: currentIdea, rawData: updated, phase: 3 }));
         return updated;
     });

@@ -32,10 +32,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a "Differentiation Auditor". Your task is to find the "Commoditized Death Trap" in new startups.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'DifferentiationAnalysis');
 }

@@ -36,10 +36,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are a veteran Pre-Mortem Analyst specializing in Socratic risk discovery. You look for the "Silent Killers" that founders ignore.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'PreMortemSimulation');
 }

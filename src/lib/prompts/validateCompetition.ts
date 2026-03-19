@@ -1,14 +1,8 @@
 import { think } from '../ai';
 
 export async function validateCompetition(idea: string, competitorAnalysis: string): Promise<string> {
-  const messages = [
-    {
-      role: 'system' as const,
-      content: `You are a competition analyst. Phase 3: COMPETITION SATURATION ANALYSIS. Evaluate how crowded the space really is across ALL dimensions of competition, not just direct competitors.`,
-    },
-    {
-      role: 'user' as const,
-      content: `Evaluate competition saturation for this startup idea.
+  const prompt = `
+Evaluate competition saturation for this startup idea.
 
 IDEA:
 ${idea}
@@ -57,11 +51,11 @@ Output JSON:
   "networkEffects": "strong | weak | none",
   "competitionScore": 6,
   "summary": "brutally honest assessment"
-}`,
-    },
-  ];
-
-  const result = await think(messages, { jsonMode: true, temperature: 0.5 });
-  return result.content;
 }
+`;
 
+  return think([
+    { role: 'system', content: 'You are a competition analyst. Phase 3: COMPETITION SATURATION ANALYSIS. Evaluate how crowded the space really is across ALL dimensions of competition, not just direct competitors.' },
+    { role: 'user', content: prompt }
+  ], 'CompetitionAnalysis');
+}

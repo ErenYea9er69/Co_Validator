@@ -34,10 +34,8 @@ Return a JSON object:
 }
 `;
 
-  const result = await think([
+  return think([
     { role: 'system', content: 'You are an "Anthropological Investigator" specializing in startup failure patterns. You look for the "Tarpit" — ideas that look good but have hidden, fatal flaws.' },
     { role: 'user', content: prompt }
-  ], { jsonMode: true });
-
-  return result.content;
+  ], 'ProblemValidation');
 }
