@@ -36,7 +36,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [completedSteps, setCompletedSteps] = useState(0);
   const [auditUsage, setAuditUsage] = useState({ tokens: 0, searches: 0 });
-  const totalSteps = 17;
+  const totalSteps = 24;
   const [phase, setPhase] = useState<number>(-1);
   const [phaseName, setPhaseName] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
@@ -207,15 +207,26 @@ export default function Home() {
     const evidence: Record<string, any[]> = {};
     let p1: any = null, p2: any = null, p3: any = null, p4: any = null, p5: any = null, p6: any = null, p7: any = null, p_fit: any = null;
     let interrogationData: any = null, preMortemData: any = null, syntheticData: any = null;
+    let trendData: any = null, biasData: any = null;
+    let factCheckData: any = null, consistencyData: any = null, unitEconData: any = null, graveyardData: any = null, secondOpinionData: any = null;
     const failed: string[] = [];
+
+    // ═══ WAVE 0: Pre-Flight (Truth & Calibration) ═══
+    setPhase(0.5); setPhaseName('Pre-Flight Calibration'); addLog('Running Trend Radar & Bias Detection...');
+    const wave0 = await Promise.allSettled([
+      actions.runTrendRadar(currentIdea.industry, auditToken),
+      actions.runBiasCalibration(JSON.stringify(currentIdea), currentIdea.founderBackground, auditToken)
+    ]);
+    if (wave0[0].status === 'fulfilled') { trendData = wave0[0].value; setRawData((prev: any) => ({ ...prev, trendRadar: trendData })); addLog('Trend Radar ✓'); trackUsage(trendData); setCompletedSteps(prev => prev + 1); }
+    if (wave0[1].status === 'fulfilled') { biasData = wave0[1].value; setRawData((prev: any) => ({ ...prev, founderBias: biasData })); addLog('Bias Calibration ✓'); trackUsage(biasData); setCompletedSteps(prev => prev + 1); }
 
     // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5, Fit, Synthetic) ═══
     setPhase(1); setPhaseName('Parallel Scan (6 phases)'); addLog('Launching parallel research wave...');
     
     // Fix 8: Ensure interrogation answers are prominent in the prompt context
-    const interrogationVerified = currentIdea.interrogationAnswers?.length > 0 
+    const interrogationVerified = (currentIdea.interrogationAnswers?.length > 0 
       ? `\nVERIFIED REFINEMENTS FROM INTERROGATION:\n${currentIdea.interrogationAnswers.map((a: any) => `- Q: ${a.question}\n  A: ${a.answer}`).join('\n')}`
-      : "";
+      : "") + (trendData?.result ? `\nCURRENT 90-DAY TRENDS:\n${JSON.stringify(trendData.result)}` : "");
     const baseContext = `IDEA_INPUT: ${JSON.stringify(currentIdea)}${interrogationVerified}`;
 
     const wave1 = await Promise.allSettled([
@@ -314,10 +325,28 @@ export default function Home() {
         return updated;
     });
 
+    // ═══ WAVE 2.5: Truth Synthesis Middle-Layer ═══
+    setPhase(4.5); setPhaseName('Intelligence Verification'); addLog('Fact-checking AI claims and finding contradictions...');
+    const intermediateOutputs = JSON.stringify({ p1: p1?.result, p2: p2?.result, p3: p3?.result, p4: p4?.result, p5: p5?.result, p6: p6?.result, p9: p9?.result, p10: p10?.result, syntheticData: syntheticData?.result });
+    
+    const wave2_5 = await Promise.allSettled([
+      actions.runFactCheck(JSON.stringify({ Phase2_Competitors: p2?.result, Phase5_Market: p5?.result }), auditToken),
+      actions.runConsistencyAudit(intermediateOutputs, auditToken),
+      actions.runUnitEconVerification(JSON.stringify(p10?.result || {}), currentIdea.industry, auditToken),
+      actions.runGraveyardAnalysis(JSON.stringify(currentIdea), currentIdea.industry, auditToken)
+    ]);
+    
+    if (wave2_5[0].status === 'fulfilled') { factCheckData = wave2_5[0].value; setRawData((prev: any) => ({ ...prev, factCheck: factCheckData })); trackUsage(factCheckData); setCompletedSteps(prev => prev + 1); }
+    if (wave2_5[1].status === 'fulfilled') { consistencyData = wave2_5[1].value; setRawData((prev: any) => ({ ...prev, consistency: consistencyData })); trackUsage(consistencyData); setCompletedSteps(prev => prev + 1); }
+    if (wave2_5[2].status === 'fulfilled') { unitEconData = wave2_5[2].value; setRawData((prev: any) => ({ ...prev, unitEcon: unitEconData })); trackUsage(unitEconData); setCompletedSteps(prev => prev + 1); }
+    if (wave2_5[3].status === 'fulfilled') { graveyardData = wave2_5[3].value; setRawData((prev: any) => ({ ...prev, graveyard: graveyardData })); trackUsage(graveyardData); setCompletedSteps(prev => prev + 1); }
+    addLog('Truth Verification complete ✓');
+
     // ═══ WAVE 3: Intelligence (Interrogation + Pre-Mortem + Debate + Competitive Response + Apathy) ═══
     const researchSummary = JSON.stringify({
       p1: p1?.result, p2: p2?.result, p3: p3?.result, p4: p4?.result, p5: p5?.result, p6: p6?.result, 
       p_fit: p_fit?.result, synthetic: syntheticData?.result,
+      truthData: { factCheck: factCheckData?.result, consistency: consistencyData?.result, graveyard: graveyardData?.result }
     });
 
     setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running simulations and adversarial debate...');
@@ -362,7 +391,8 @@ export default function Home() {
     // Fix 4: Rebuild summary with Wave 3 intelligence
     const fullResearchSummary = JSON.stringify({
       wave1: { p1: p1?.result, p2: p2?.result, p4: p4?.result, p5: p5?.result, p_fit: p_fit?.result, synthetic: syntheticData?.result },
-      wave2: { p3: p3?.result, p6: p6?.result, p9: rawData.p9?.result, p10: rawData.p10?.result },
+      wave2: { p3: p3?.result, p6: p6?.result, p9: p9?.result, p10: p10?.result },
+      truthData: { factCheck: factCheckData?.result, consistency: consistencyData?.result, unitEcon: unitEconData?.result, graveyard: graveyardData?.result, bias: biasData?.result },
       wave3: { preMortem: preMortemData?.result, debate: rawData.debate?.result, competitive: rawData.competitiveResponse?.result, apathy: rawData.apathy?.result }
     });
 
@@ -402,11 +432,19 @@ export default function Home() {
       setPhase(8); setPhaseName('Final Scoring'); addLog('Synthesizing Master Verdict...');
       const finalResult = await actions.finalizeAudit(currentIdea, fullResearchSummary, currentIdea.interrogationAnswers, auditToken);
       trackUsage(finalResult);
+      setCompletedSteps(prev => prev + 1);
       
+      setPhase(9); setPhaseName('Second Opinion'); addLog('Seeking Second Opinion...');
+      const secondOp = await actions.runSecondOpinion(JSON.stringify(finalResult.result), fullResearchSummary, JSON.stringify({ bias: biasData?.result, factCheck: factCheckData?.result, consistency: consistencyData?.result }), auditToken);
+      trackUsage(secondOp);
+      setRawData((prev: any) => ({ ...prev, secondOpinion: secondOp }));
+      setCompletedSteps(prev => prev + 1);
+
       const mergedResult = { 
         ...finalResult.result, 
         roadmap: roadmapData,
-        pivotSuggestions: finalResult.pivotRaw ? safeJsonParse(finalResult.pivotRaw as string, null) : null // Fix 5: Pivot data
+        pivotSuggestions: finalResult.pivotRaw ? safeJsonParse(finalResult.pivotRaw as string, null) : null,
+        secondOpinion: secondOp.result
       };
       
       setResult(mergedResult);
@@ -1075,6 +1113,62 @@ export default function Home() {
                 </div>
              </section>
 
+             {/* III-b. TRUTH VERIFICATION ENGINE */}
+             {(rawData.factCheck?.result || rawData.consistency?.result) && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.45s' }}>
+                   <div className="glass-card border-l-4 border-blue-500">
+                      <h3 className="text-2xl font-black text-blue-400 mb-6 flex items-center gap-3 tracking-tighter uppercase relative">
+                         <span className="absolute -left-12 top-0 text-xl">🔎</span>
+                         Truth Verification & Consistency Check
+                      </h3>
+                      
+                      <div className="grid lg:grid-cols-2 gap-8">
+                         {rawData.factCheck?.result?.factChecks && (
+                            <div>
+                               <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Hard Fact Verification</h4>
+                               <div className="space-y-3">
+                                  {rawData.factCheck.result.factChecks.map((fc: any, i: number) => (
+                                     <div key={i} className="p-3 bg-white/5 rounded-xl border border-white/5">
+                                        <div className="flex justify-between items-start mb-2">
+                                           <span className="text-[10px] text-gray-400 italic line-clamp-2 pr-4">"{fc.claim}"</span>
+                                           <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${fc.verdict === 'True' ? 'bg-green-500/20 text-green-500' : fc.verdict === 'False' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{fc.verdict}</span>
+                                        </div>
+                                        <p className="text-xs text-white font-bold">{fc.reality}</p>
+                                     </div>
+                                  ))}
+                               </div>
+                            </div>
+                         )}
+
+                         {rawData.consistency?.result?.contradictions && (
+                            <div>
+                               <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Internal Logic Contradictions</h4>
+                               {rawData.consistency.result.contradictions.length > 0 ? (
+                                  <div className="space-y-4">
+                                     {rawData.consistency.result.contradictions.map((ct: any, i: number) => (
+                                        <div key={i} className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                                           <div className="flex gap-2 items-center mb-2">
+                                              <span className="text-lg">⚡</span>
+                                              <span className="text-xs font-black text-orange-400 uppercase tracking-tight">{ct.issue}</span>
+                                           </div>
+                                           <p className="text-[10px] text-gray-300 italic">"{ct.explanation}"</p>
+                                           <span className="text-[8px] mt-2 block font-black text-red-500 uppercase">Impact: {ct.impactSeverity}</span>
+                                        </div>
+                                     ))}
+                                  </div>
+                               ) : (
+                                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
+                                     <span className="text-green-400 font-bold text-xs uppercase block">✓ Logic Verified</span>
+                                     <span className="text-[10px] text-gray-400">No internal contradictions found across all generated insights.</span>
+                                  </div>
+                               )}
+                            </div>
+                         )}
+                      </div>
+                   </div>
+                </section>
+             )}
+
              {/* IV. Competitive Landscape */}
              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.6s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
@@ -1606,6 +1700,41 @@ export default function Home() {
                  </section>
              )}
 
+             {/* XII-b. STARTUP GRAVEYARD (SURVIVORSHIP BIAS) */}
+             {rawData.graveyard?.result && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.3s' }}>
+                   <h3 className="text-3xl font-black text-gray-500 flex items-center gap-4">
+                      <span className="bg-gray-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-500/30">✝</span>
+                      STARTUP GRAVEYARD (SURVIVORSHIP BIAS)
+                   </h3>
+                   <div className="grid lg:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                       <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Historical Causalities</h4>
+                       {rawData.graveyard.result.similarFailures?.map((f: any, i: number) => (
+                          <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-xl group hover:border-gray-500/30">
+                             <div className="flex justify-between items-center mb-2">
+                               <span className="text-sm font-black text-white uppercase">{f.companyName}</span>
+                               <span className="text-[9px] font-black text-gray-500 bg-black px-2 py-0.5 rounded">{f.era}</span>
+                             </div>
+                             <p className="text-xs text-red-400 font-bold mb-2">Fatal Flaw: {f.fatalFlaw}</p>
+                             <p className="text-[10px] text-gray-400 italic">"Why they actually died: {f.realReasonForDeath}"</p>
+                          </div>
+                       ))}
+                     </div>
+                     <div className="space-y-6">
+                        <div className="glass-card !bg-gray-900/50 border-gray-700/50">
+                           <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">The Shared Delusion</h4>
+                           <p className="text-sm text-gray-300 italic mb-6 leading-relaxed">"{rawData.graveyard.result.sharedDelusion}"</p>
+                           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                              <span className="text-[9px] text-red-500 font-black uppercase tracking-widest block mb-2">How to Survive Where They Failed</span>
+                              <p className="text-xs text-white font-bold leading-tight">"{rawData.graveyard.result.howToSurviveWhereTheyFailed}"</p>
+                           </div>
+                        </div>
+                     </div>
+                   </div>
+                </section>
+             )}
+
              {/* XIII. Regulatory IQ & Capability Gap */}
              {rawData.p9?.result && (
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.4s' }}>
@@ -1824,6 +1953,40 @@ export default function Home() {
                            </div>
                         </div>
                       ))}
+                   </div>
+                </section>
+              )}
+
+              {/* XVII-c. INDEPENDENT SECOND OPINION */}
+              {rawData.secondOpinion?.result && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '3.6s' }}>
+                   <div className="glass-card border-l-4 border-purple-500 !bg-purple-500/5">
+                      <div className="flex justify-between items-start mb-6">
+                         <h3 className="text-2xl font-black text-purple-400 uppercase tracking-widest flex items-center gap-3">
+                            <span className="bg-purple-500/20 text-purple-400 p-2 rounded-lg">⚑</span>
+                            INDEPENDENT SECOND OPINION
+                         </h3>
+                         <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${rawData.secondOpinion.result.dissentLevel === 'High' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                           Dissent: {rawData.secondOpinion.result.dissentLevel}
+                         </span>
+                      </div>
+                      <div className="space-y-6">
+                         <p className="text-lg text-white font-serif italic border-l-2 border-purple-500/30 pl-4">"{rawData.secondOpinion.result.contrarianTake}"</p>
+                         <div className="grid lg:grid-cols-2 gap-4">
+                            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                               <span className="text-[9px] font-black text-gray-500 uppercase block mb-2">Overlooked Risk</span>
+                               <p className="text-sm text-red-300">"{rawData.secondOpinion.result.overlookedRisk}"</p>
+                            </div>
+                            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                               <span className="text-[9px] font-black text-gray-500 uppercase block mb-2">Hidden Silver Lining</span>
+                               <p className="text-sm text-green-300">"{rawData.secondOpinion.result.hiddenSilverLining}"</p>
+                            </div>
+                         </div>
+                         <div className="p-4 bg-black/40 border border-purple-500/20 rounded-xl mt-4">
+                            <span className="text-[10px] text-purple-400 font-black uppercase block mb-2">Final Recalibrated Verdict</span>
+                            <p className="text-xl font-black text-white italic">"{rawData.secondOpinion.result.recalibratedVerdict}"</p>
+                         </div>
+                      </div>
                    </div>
                 </section>
               )}

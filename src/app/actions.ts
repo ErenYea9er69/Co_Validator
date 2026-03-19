@@ -34,6 +34,13 @@ import { stressTestSimulation as stressTestSimulationPrompt } from '@/lib/prompt
 import { suggestNextEvidence } from '@/lib/prompts/suggestEvidence';
 import { generateMetricAction } from '@/lib/prompts/generateMetricAction';
 import { gradePitchAnswer as gradePitchAnswerPrompt } from '@/lib/prompts/gradePitchAnswer';
+import { trendRadar } from '@/lib/prompts/trendRadar';
+import { founderBiasCalibrator } from '@/lib/prompts/founderBias';
+import { extractClaims, factCheckClaims } from '@/lib/prompts/factCheck';
+import { consistencyAuditor } from '@/lib/prompts/consistencyCheck';
+import { unitEconomicsVerifier } from '@/lib/prompts/unitEconVerifier';
+import { survivorshipBiasDetector } from '@/lib/prompts/survivorshipBias';
+import { secondOpinionReview } from '@/lib/prompts/secondOpinion';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 function checkAuth(token?: string) {
@@ -273,3 +280,65 @@ export async function gradeFounderAnswer(question: string, founderAnswer: string
   const raw = await gradePitchAnswerPrompt(question, founderAnswer);
   return { result: safeJsonParse(raw, {}, 'Grade Answer'), raw };
 }
+
+export async function runTrendRadar(industry: string, token?: string) {
+  checkAuth(token);
+  // Optional: We can add a Tavily search here for the actual news, but let's wire it up simply first.
+  const searchQuery = `${industry} startup product updates pricing funding ${new Date().getFullYear()}`;
+  const searchRaw = await search(searchQuery, { searchDepth: 'basic', maxResults: 5, topic: 'news', timeRange: 'month' });
+  const raw = await trendRadar(industry, JSON.stringify(searchRaw));
+  return { result: safeJsonParse(raw, {}, 'Trend Radar'), raw };
+}
+
+export async function runBiasCalibration(ideaStr: string, founderStr: string, token?: string) {
+  checkAuth(token);
+  const raw = await founderBiasCalibrator(ideaStr, founderStr);
+  return { result: safeJsonParse(raw, {}, 'Bias Calibration'), raw };
+}
+
+export async function runFactCheck(phaseOutputsStr: string, token?: string) {
+  checkAuth(token);
+  // 1. Extract claims
+  const claimsRaw = await extractClaims(phaseOutputsStr);
+  const claimsParsed = safeJsonParse(claimsRaw, { testableClaims: [] }, 'Extract Claims');
+  
+  // 2. Search for each claim
+  const searchPromises = (claimsParsed.testableClaims || []).slice(0, 3).map(async (c: any) => {
+    const s = await search(c.searchQuery, { searchDepth: 'basic', maxResults: 3 });
+    return { claim: c.claim, searchResults: s.results };
+  });
+  const searchResults = await Promise.all(searchPromises);
+  
+  // 3. Fact check
+  const raw = await factCheckClaims(JSON.stringify(searchResults));
+  return { result: safeJsonParse(raw, {}, 'Fact Check'), raw };
+}
+
+export async function runConsistencyAudit(allPhaseOutputsStr: string, token?: string) {
+  checkAuth(token);
+  const raw = await consistencyAuditor(allPhaseOutputsStr);
+  return { result: safeJsonParse(raw, {}, 'Consistency Audit'), raw };
+}
+
+export async function runUnitEconVerification(financialOutputStr: string, industry: string, token?: string) {
+  checkAuth(token);
+  const searchQuery = `${industry} SaaS unit economics benchmarks CAC LTV gross margin churn ${new Date().getFullYear()}`;
+  const searchRaw = await search(searchQuery, { searchDepth: 'advanced', maxResults: 5 });
+  const raw = await unitEconomicsVerifier(financialOutputStr, JSON.stringify(searchRaw));
+  return { result: safeJsonParse(raw, {}, 'Unit Econ Verifier'), raw };
+}
+
+export async function runGraveyardAnalysis(ideaStr: string, industry: string, token?: string) {
+  checkAuth(token);
+  const searchQuery = `${industry} startup failed shutdown post-mortem crunchbase indiehackers`;
+  const searchRaw = await search(searchQuery, { searchDepth: 'advanced', maxResults: 8 });
+  const raw = await survivorshipBiasDetector(ideaStr, JSON.stringify(searchRaw));
+  return { result: safeJsonParse(raw, {}, 'Graveyard Analysis'), raw };
+}
+
+export async function runSecondOpinion(finalVerdictStr: string, allPhaseOutputsStr: string, truthDataStr: string, token?: string) {
+  checkAuth(token);
+  const raw = await secondOpinionReview(finalVerdictStr, allPhaseOutputsStr, truthDataStr);
+  return { result: safeJsonParse(raw, {}, 'Second Opinion'), raw };
+}
+
