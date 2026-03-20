@@ -150,23 +150,38 @@ main {
 }
 .animate-bounce-subtle { animation: bounceSoft 3s ease-in-out infinite; }
 
-/* ─── Print / PDF Stylesheet ─── */
+/* ─── High-Fidelity PDF Export Stylesheet ─── */
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  html, body {
+    background: #000000 !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0;
   }
+  
+  /* Preserve the Liquid Glass structure */
   .glass-card {
-    background: white !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid #e5e7eb !important;
+    background: rgba(15, 15, 15, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     box-shadow: none !important;
-    break-inside: avoid;
+    break-inside: avoid !important;
+    page-break-inside: avoid;
   }
-  button:not([data-print-keep]), [data-print-hide] { display: none !important; }
-  h1, h2, h3, h4, h5, h6 { color: black !important; }
-  p, span, li, div { color: #374151 !important; }
+
+  /* Hide UI navigation elements */
+  button, nav, .print\:hidden {
+    display: none !important;
+  }
+
+  /* Ensure text colors aren't stripped by greedy browser printers */
+  h1, h2, h3, h4, h5, h6, p, span, div {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Force borders to stay visible */
+  * {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
 }

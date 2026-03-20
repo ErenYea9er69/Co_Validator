@@ -888,7 +888,7 @@ export default function Home() {
                 className="px-6 py-2 border border-white/20 rounded-full text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all text-gray-400">
                 Print Web View
              </button>
-             <button onClick={() => generatePDF(idea, result, rawData)}
+             <button onClick={() => generatePDF(idea.name)}
                 className="px-6 py-2 bg-purple-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/40">
                 Download PDF Report
              </button>
@@ -897,7 +897,7 @@ export default function Home() {
 
         {/* STRATEGIC DOSSIER & SCOREBOARD VIEW */}
         {result && (activeTab === 'dossier' || activeTab === 'scoreboard') && (
-          <div className="animate-fade-in space-y-20 pb-24 dossier-view relative print:space-y-8">
+          <div id="dossier-content" className="animate-fade-in space-y-20 pb-24 dossier-view relative print:space-y-8">
              {/* 0. Strategic Ground Truth Header */}
              <div className="mb-12 animate-slide-up">
                 <div className="flex justify-between items-end mb-8">
