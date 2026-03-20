@@ -512,7 +512,7 @@ export default function Home() {
               <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded ml-2 uppercase tracking-widest align-middle">Deep Audit</span>
             </h1>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto italic">
-              "The Silicon Valley Blitz-Auditor" — Full 8-phase autonomous simulation.
+              "AI Startup Due Diligence" — Full 8-phase automated analysis.
             </p>
           </header>
         )}
@@ -902,7 +902,7 @@ export default function Home() {
                 <div className="flex justify-between items-end mb-8">
                    <div className="text-left">
                       <h2 className="text-5xl font-black text-white tracking-tighter uppercase">{idea.name}</h2>
-                      <p className="text-gray-400 font-serif italic text-xl mt-2">"The Strategic Ground Truth Synthesis"</p>
+                      <p className="text-gray-400 font-serif italic text-xl mt-2">"Final Audit Summary"</p>
                    </div>
                    <div className="text-right">
                       <span className="text-[10px] text-gray-500 uppercase font-black block mb-2">Verdict Status</span>
@@ -917,14 +917,14 @@ export default function Home() {
                 <div className="grid lg:grid-cols-3 gap-6">
                    <div className="p-8 bg-purple-500/5 border border-purple-500/20 rounded-3xl relative overflow-hidden group hover:border-purple-500/40 transition-all">
                       <div className="relative z-10">
-                         <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block mb-1">The Core Bet</span>
+                         <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block mb-1">Primary Hypothesis</span>
                          <p className="text-xl text-white font-bold leading-tight">"{result.coreBet}"</p>
                       </div>
                       <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl group-hover:scale-110 transition-transform">🎯</div>
                    </div>
                    <div className="p-8 bg-green-500/5 border border-green-500/20 rounded-3xl relative overflow-hidden group hover:border-green-500/40 transition-all">
                       <div className="relative z-10 space-y-4">
-                          <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Triple-Constraint Validation ($500 ea.)</span>
+                          <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Validation Testing Methods ($500 ea.)</span>
                           <div className="grid gap-2">
                              <div className="bg-white/5 p-2 rounded-xl border border-white/5">
                                 <span className="text-[9px] uppercase font-bold text-blue-400 block mb-0.5">Digital</span>
@@ -935,7 +935,7 @@ export default function Home() {
                                 <p className="text-[11px] text-gray-300 leading-tight">"{result.tests?.analog}"</p>
                              </div>
                              <div className="bg-white/5 p-2 rounded-xl border border-white/5">
-                                <span className="text-[9px] uppercase font-bold text-purple-400 block mb-0.5">Wizard of Oz</span>
+                                <span className="text-[9px] uppercase font-bold text-purple-400 block mb-0.5">Manual Prototype</span>
                                 <p className="text-[11px] text-gray-300 leading-tight">"{result.tests?.wizardOfOz}"</p>
                              </div>
                           </div>
@@ -944,7 +944,7 @@ export default function Home() {
                    </div>
                    <div className="p-8 bg-red-500/5 border border-red-500/20 rounded-3xl relative overflow-hidden group hover:border-red-500/40 transition-all">
                       <div className="relative z-10">
-                         <span className="text-[10px] font-black text-red-400 uppercase tracking-widest block mb-1">The Stop Signal</span>
+                         <span className="text-[10px] font-black text-red-400 uppercase tracking-widest block mb-1">Critical Failure Condition</span>
                          <p className="text-xl text-white font-bold leading-tight">"{result.stopSignal}"</p>
                       </div>
                       <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl group-hover:scale-110 transition-transform">🛑</div>
@@ -992,7 +992,7 @@ export default function Home() {
                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
                       <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
                          <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">II</span>
-                         STRATEGIC INTELLIGENCE (PRIMARY SIGNALS)
+                         MARKET RESEARCH INSIGHTS
                       </h3>
                       <div className="text-right">
                         <span className="text-[9px] text-gray-500 uppercase font-black block">Research Credibility</span>
@@ -1064,12 +1064,12 @@ export default function Home() {
                                 ))}
                              </div>
                              <p className="text-xs text-purple-200 leading-tight border-t border-purple-500/20 pt-3 italic">
-                               <span className="font-black">THE TRAP:</span> {rawData.synthetic.result.tarpitAnalysis.trapDescription}
+                               <span className="font-black">THE RISK:</span> {rawData.synthetic.result.tarpitAnalysis.trapDescription}
                              </p>
                           </div>
                         )}
 
-                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Simulated Discovery Interviews</h4>
+                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Customer Interview Transcripts</h4>
                         {rawData.synthetic.result.interviewTranscripts?.slice(0, 1).map((t: any, i: number) => (
                           <div key={i} className="p-6 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-2 opacity-5">
@@ -1100,7 +1100,7 @@ export default function Home() {
                    <div className="glass-card border-l-4 border-blue-400 bg-blue-400/5">
                       <h3 className="text-xl font-black text-blue-400 uppercase tracking-widest flex items-center gap-3 mb-6">
                         <span className="text-2xl">📡</span>
-                        Industry Trend Radar (Active Scan)
+                        Current Industry Trends
                       </h3>
                       <div className="grid lg:grid-cols-2 gap-8">
                          <div className="space-y-4">
@@ -1120,7 +1120,7 @@ export default function Home() {
                                <p className="text-xs text-blue-300 italic">"{rawData.trendRadar.result.categoricalBaseline}"</p>
                             </div>
                             <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                               <span className="text-[9px] text-red-500 font-black uppercase block mb-1">Recent Graveyard Additions</span>
+                               <span className="text-[9px] text-red-500 font-black uppercase block mb-1">Recent Competitor Failures</span>
                                <p className="text-xs text-gray-400">{rawData.trendRadar.result.recentGraveyard}</p>
                             </div>
                          </div>
@@ -1244,7 +1244,7 @@ export default function Home() {
                       </div>
                    </div>
                    <div className="glass-card bg-red-500/5 border-red-500/20">
-                      <h4 className="text-xs font-black text-red-500 uppercase mb-6 tracking-widest">The Death Vector</h4>
+                      <h4 className="text-xs font-black text-red-500 uppercase mb-6 tracking-widest">Market Saturation Risk</h4>
                       <p className="text-lg font-black mb-4 print:text-black">"{renderSafe(rawData.p3?.result?.saturationRisk) || "N/A"}"</p>
                       <p className="text-sm text-gray-400 leading-relaxed italic">{renderSafe(rawData.p3?.result?.brutalTruth)}</p>
                    </div>
@@ -1282,7 +1282,7 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.7s' }}>
                    <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
                       <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30 font-mono">V</span>
-                      PSYCHOLOGICAL FRICTION
+                      CUSTOMER ADOPTION BARRIERS
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="glass-card">
@@ -1322,7 +1322,7 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.8s' }}>
                    <h3 className="text-3xl font-black text-green-500 flex items-center gap-4">
                       <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">VI</span>
-                      FINANCIAL SURVIVAL SKELETON
+                      FINANCIAL PROJECTIONS & CONSTRAINTS
                    </h3>
                    <div className="grid lg:grid-cols-4 gap-4">
                        <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
@@ -1344,8 +1344,8 @@ export default function Home() {
                    </div>
                    <div className="grid lg:grid-cols-2 gap-4">
                        <div className="glass-card !bg-red-500/5 border-red-500/30 relative">
-                          <div className="absolute top-4 right-4 text-[8px] font-black text-red-500 uppercase tracking-widest">MANDATORY DEATH CLOCK</div>
-                          <h4 className="text-xs font-black text-red-400 uppercase tracking-widest mb-6">THE BURN RATE GUILLOTINE</h4>
+                          <div className="absolute top-4 right-4 text-[8px] font-black text-red-500 uppercase tracking-widest">FINANCIAL RUNWAY DEADLINE</div>
+                          <h4 className="text-xs font-black text-red-400 uppercase tracking-widest mb-6">RUNWAY LIMITS & BURN RATE</h4>
                           <div className="flex items-center gap-6 mb-6">
                              <div className="text-6xl font-black text-white">{rawData.p10.result.deathGuillotine?.monthsToZero}</div>
                              <div className="flex flex-col">
@@ -1381,7 +1381,7 @@ export default function Home() {
                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
                       <h3 className="text-3xl font-black text-red-400 flex items-center gap-4">
                          <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">VII</span>
-                         APATHY SIMULATOR
+                         CUSTOMER ACQUISITION FRICTION
                       </h3>
                       <div className="text-right">
                          <span className="text-[9px] text-gray-500 uppercase font-black block">Apathy Score</span>
@@ -1418,7 +1418,7 @@ export default function Home() {
 
                        <div className="glass-card !bg-red-500/5 border-red-500/40 relative">
                           <div className="absolute top-4 right-4 text-[8px] font-black text-red-500 uppercase tracking-widest">MANDATORY EMPIRICAL PROOF</div>
-                          <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">ACTION-BASED FRICTION TEST</h4>
+                          <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">ACTION-BASED VALIDATION TEST</h4>
                           <div className="p-6 bg-black/40 border border-white/5 rounded-2xl mb-6">
                              <span className="text-[9px] text-gray-500 uppercase block mb-2">The Value Hook</span>
                              <p className="text-lg text-white font-black italic leading-tight animate-pulse">"{rawData.apathy.result.empiricalTest?.proposition}"</p>
@@ -1494,7 +1494,7 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.2s' }}>
                    <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
                       <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30 text-lg">VII-b</span>
-                      EXPERT FAILURE SCENARIOS (P7)
+                      EXPERT RISK SCENARIOS (P7)
                    </h3>
                    <div className="grid lg:grid-cols-3 gap-6">
                       {rawData.p7.result.failureScenarios.map((s: any, i: number) => (
@@ -1515,7 +1515,7 @@ export default function Home() {
                    </div>
                    {rawData.p7.result.mostLikelyDeathCause && (
                      <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-3xl">
-                        <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-1 underline">Most Likely Death Cause</span>
+                        <span className="text-[10px] text-red-400 font-black uppercase tracking-widest block mb-1 underline">Most Likely Cause of Failure</span>
                         <p className="text-2xl font-black text-white italic leading-tight">"{rawData.p7.result.mostLikelyDeathCause}"</p>
                      </div>
                    )}
@@ -1526,7 +1526,7 @@ export default function Home() {
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.4s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
                     <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">VIII</span>
-                    EXECUTION DOSSIER
+                    EXECUTION FEASIBILITY
                  </h3>
                  <div className="grid lg:grid-cols-2 gap-8">
                     <div className="glass-card">
@@ -1544,7 +1544,7 @@ export default function Home() {
                        </div>
                     </div>
                     <div className="glass-card">
-                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Asymmetric Advantage</h4>
+                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Competitive Advantage</h4>
                        <p className="text-lg text-green-400 font-black mb-4 underline decoration-green-500/30 font-mono tracking-tighter uppercase">{renderSafe(rawData.p6?.result?.primaryAdvantage) || "N/A"}</p>
                        <p className="text-sm text-gray-400 italic mb-4">Strategy: {renderSafe(rawData.p6?.result?.differentiationStrategy)}</p>
                        {rawData.p6?.result?.signals && (
@@ -1599,7 +1599,7 @@ export default function Home() {
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.6s' }}>
                  <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
                     <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">IX</span>
-                    UNIT ECONOMICS & EXIT ENGINE
+                    UNIT ECONOMICS & EXIT STRATEGY
                  </h3>
                  <div className="grid lg:grid-cols-3 gap-8">
                    <div className="lg:col-span-2 glass-card">
@@ -1649,7 +1649,7 @@ export default function Home() {
               <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '1.8s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
                    <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 text-lg">X</span>
-                   IP & REGULATORY FORTRESS
+                   REGULATORY AND IP RISKS
                 </h3>
                 {rawData.p9?.result && (
                   <div className="grid lg:grid-cols-2 gap-8">
@@ -1675,7 +1675,7 @@ export default function Home() {
                        </div>
                     </div>
                     <div className="glass-card">
-                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">IP Risk & Landmines</h4>
+                       <h4 className="text-xs font-black text-gray-500 uppercase mb-4">Intellectual Property Risks</h4>
                        <div className="text-2xl font-black text-purple-400 mb-4">IP Defense Score: {rawData.p9.result.ipScore}%</div>
                        <div className="grid gap-3">
                          {rawData.p9.result.keyLandmines?.map((l: any, i: number) => (
@@ -1695,13 +1695,13 @@ export default function Home() {
                  <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.0s' }}>
                     <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
                        <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">XI</span>
-                       FOUNDER CAPABILITY GAP INTERVIEW
+                       FOUNDER SKILL GAP ANALYSIS
                     </h3>
                     
                     {/* Founder Reality Check (Gap 7) */}
                     <div className="glass-card border-l-4 border-red-500 !bg-red-500/5 mb-8">
                        <div className="flex justify-between items-start mb-4">
-                          <h4 className="text-xs font-black text-red-500 uppercase tracking-widest">THE FOUNDER REALITY CHECK</h4>
+                          <h4 className="text-xs font-black text-red-500 uppercase tracking-widest">FOUNDER SELF-ASSESSMENT</h4>
                           <span className="text-[8px] bg-red-500 text-white px-2 py-0.5 rounded font-black">FATAL IF FAKED</span>
                        </div>
                        <p className="text-lg text-white font-black italic mb-4 leading-tight">"{rawData.p_fit.result.realityCheck?.question}"</p>
@@ -1748,7 +1748,7 @@ export default function Home() {
                              </ul>
                           </div>
                            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                              <span className="text-[9px] text-gray-500 uppercase font-black block mb-2">The Unfair Advantage</span>
+                              <span className="text-[9px] text-gray-500 uppercase font-black block mb-2">Founder's Unique Edge</span>
                               <p className="text-xs text-blue-100 font-bold italic leading-tight">"{rawData.p_fit.result.unfairAdvantage}"</p>
                            </div>
                         </div>
@@ -1761,11 +1761,11 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.2s' }}>
                    <h3 className="text-3xl font-black text-red-500 flex items-center gap-4">
                       <span className="bg-red-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-red-500/30">XII</span>
-                      SOCRATIC DEATH SIMULATION
+                      PRE-MORTEM FAILURE ANALYSIS
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
-                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Fatal Death Scenarios</h4>
+                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Critical Failure Scenarios</h4>
                          {rawData.preMortem.result.fatalScenarios?.map((s: any, i: number) => (
                             <div key={i} className={`p-6 rounded-2xl border ${s.probability === 'High' ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-white/10'}`}>
                                <h5 className="text-md font-black text-white mb-2 uppercase tracking-tighter">{s.name}</h5>
@@ -1835,7 +1835,7 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.3s' }}>
                    <h3 className="text-3xl font-black text-gray-500 flex items-center gap-4">
                       <span className="bg-gray-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-500/30">✝</span>
-                      STARTUP GRAVEYARD (SURVIVORSHIP BIAS)
+                      HISTORICAL COMPETITOR ANALYSIS
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
                      <div className="space-y-4">
@@ -1870,7 +1870,7 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.4s' }}>
                    <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
                       <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30">XIII</span>
-                      REGULATORY IQ & CAPABILITY GAP
+                      REGULATORY COMPLIANCE REQUIREMENTS
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
                      <div className="space-y-6">
@@ -1889,7 +1889,7 @@ export default function Home() {
                      </div>
                      <div className="space-y-6">
                        <div className="glass-card !bg-purple-500/5 border-purple-500/20">
-                          <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4">Compliance Moat Strategy</h4>
+                          <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4">Regulatory Strategy</h4>
                           <p className="text-sm text-gray-200 font-bold italic leading-relaxed">"{rawData.p9.result.complianceMoat}"</p>
                        </div>
                        <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
@@ -1914,11 +1914,11 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.6s' }}>
                    <h3 className="text-3xl font-black text-orange-400 flex items-center gap-4">
                       <span className="bg-orange-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-orange-500/30">XIV</span>
-                      COMPETITIVE RETALIATION SIMULATION
+                      COMPETITOR RESPONSE SCENARIOS
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
                       <div className="space-y-4">
-                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Incumbent Retaliation Playbook</h4>
+                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Expected Competitor Actions</h4>
                          {rawData.competitiveResponse.result.retaliationMoves?.map((m: any, i: number) => (
                             <div key={i} className={`p-6 rounded-2xl border ${m.lethality === 'Fatal' ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-white/10'}`}>
                                <div className="flex justify-between items-start mb-4">
@@ -1962,7 +1962,7 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.8s' }}>
                    <h3 className="text-3xl font-black text-blue-400 flex items-center gap-4">
                       <span className="bg-blue-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-blue-500/30">XV</span>
-                      ADVERSARIAL COUNCIL: GROUND TRUTH
+                      CONFLICTING EVIDENCE & FINAL RESOLUTION
                    </h3>
                    <div className="grid lg:grid-cols-2 gap-8">
                      <div className="p-8 bg-blue-500/5 border border-blue-500/30 rounded-3xl">
@@ -1994,7 +1994,7 @@ export default function Home() {
                 <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '3.0s' }}>
                    <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4">
                       <span className="bg-purple-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-purple-500/30 font-mono">XVI</span>
-                      THE INDUSTRIAL ROADMAP (BLITZ)
+                      EXECUTION ROADMAP
                    </h3>
                    <div className="grid lg:grid-cols-3 gap-6">
                       {result.roadmap.phases?.map((p: any, idx: number) => (
@@ -2157,7 +2157,7 @@ export default function Home() {
              {/* XVIII. Interactive Stress Test */}
              <section className="glass-card border-purple-500/50 bg-purple-500/5 p-12 animate-slide-up" style={{ animationDelay: '2.2s' }}>
                 <div className="max-w-3xl mx-auto text-center">
-                   <h3 className="text-3xl font-black text-white mb-4">INTERACTIVE STRESS TEST</h3>
+                   <h3 className="text-3xl font-black text-white mb-4">INTERACTIVE SCENARIO SIMULATION</h3>
                    <p className="text-gray-400 mb-8 italic text-sm">Challenge the business with a specific market shock or execution failure.</p>
                    
                    <div className="flex gap-4 mb-8">
