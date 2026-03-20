@@ -43,7 +43,13 @@ Return a JSON object:
       "testAgenda": "Step-by-step for the next 14 days."
     }
   ],
-  "reasoning": "The Master Committee's final synthesized logic.",
+  reasoning: "The Master Committee's final synthesized logic.",
+  "authorityJustification": "A blunt 2-sentence explanation of why the user should trust this specific audit (cite the number of expert agents, search queries, and truth verification steps performed).",
+  "logicChain": [
+    "Step 1 of the logic...",
+    "Step 2 of the logic...",
+    "Final conclusion step..."
+  ],
   "vulnerabilityScan": ["Top 3 internal red flags"],
   "opportunityScan": ["Top 3 asymmetric green flags"]
 }

@@ -41,6 +41,7 @@ import { consistencyAuditor } from '@/lib/prompts/consistencyCheck';
 import { unitEconomicsVerifier } from '@/lib/prompts/unitEconVerifier';
 import { survivorshipBiasDetector } from '@/lib/prompts/survivorshipBias';
 import { secondOpinionReview } from '@/lib/prompts/secondOpinion';
+import { inputReflection } from '@/lib/prompts/inputReflection';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 function checkAuth(token?: string) {
@@ -363,5 +364,11 @@ export async function runSecondOpinion(finalVerdictStr: string, allPhaseOutputsS
   checkAuth(token);
   const raw = await secondOpinionReview(finalVerdictStr, allPhaseOutputsStr, truthDataStr);
   return { result: safeJsonParse(raw, {}, 'Second Opinion'), raw };
+}
+
+export async function runInputReflection(idea: any, token?: string) {
+  checkAuth(token);
+  const raw = await inputReflection(idea);
+  return { result: safeJsonParse(raw, {}, 'Input Reflection'), raw };
 }
 
