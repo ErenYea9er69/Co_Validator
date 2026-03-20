@@ -894,8 +894,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* STRATEGIC DOSSIER VIEW */}
-        {result && activeTab === 'dossier' && (
+        {/* STRATEGIC DOSSIER & SCOREBOARD VIEW */}
+        {result && (activeTab === 'dossier' || activeTab === 'scoreboard') && (
           <div className="animate-fade-in space-y-20 pb-24 dossier-view relative print:space-y-8">
              {/* 0. Strategic Ground Truth Header */}
              <div className="mb-12 animate-slide-up">
