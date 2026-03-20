@@ -143,7 +143,7 @@ export default function InvestorMatch({ idea, auditResult, rawData }: InvestorMa
           </h3>
           
           <div className="space-y-6">
-            {matchData?.investorArchetypes.map((arch, i) => (
+            {matchData?.investorArchetypes?.map((arch, i) => (
               <div key={i} className="bg-black/40 border border-white/10 rounded-3xl p-6 md:p-8 space-y-6 hover:border-green-500/30 transition-all relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-6 md:p-8">
                   <div className="flex flex-col items-center justify-center w-16 h-16 rounded-full border-4 border-green-500/20 group-hover:border-green-500 transition-colors">
@@ -191,7 +191,7 @@ export default function InvestorMatch({ idea, auditResult, rawData }: InvestorMa
           <p className="text-sm text-gray-400 -mt-4">Type your answer to these brutal questions and get AI graded. Don't use fluff.</p>
 
           <div className="space-y-6">
-            {matchData?.brutalQuestions.map((q, i) => (
+            {matchData?.brutalQuestions?.map((q, i) => (
               <div key={i} className={`bg-black/60 border rounded-3xl p-6 md:p-8 space-y-6 transition-all ${grades[i] ? (grades[i]!.score >= 8 ? 'border-green-500/50' : grades[i]!.score <= 5 ? 'border-red-500/50' : 'border-yellow-500/50') : 'border-white/10'}`}>
                 
                 <div className="flex gap-4 items-start">

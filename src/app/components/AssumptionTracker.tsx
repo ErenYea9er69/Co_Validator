@@ -191,10 +191,11 @@ export default function AssumptionTracker({ idea, auditResult, onRescoreComplete
   };
 
   const CircularProgress = ({ value }: { value: number }) => {
+    const safeValue = isNaN(Number(value)) ? 0 : Number(value);
     const radius = 24;
     const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (value / 100) * circumference;
-    const color = value > 75 ? 'text-green-500' : value > 40 ? 'text-yellow-500' : 'text-red-500';
+    const offset = circumference - (safeValue / 100) * circumference;
+    const color = safeValue > 75 ? 'text-green-500' : safeValue > 40 ? 'text-yellow-500' : 'text-red-500';
     return (
       <div className="relative flex items-center justify-center">
         <svg className="w-16 h-16 transform -rotate-90">
@@ -207,7 +208,7 @@ export default function AssumptionTracker({ idea, auditResult, onRescoreComplete
           />
         </svg>
         <div className="absolute flex flex-col items-center justify-center">
-          <span className="text-xs font-black text-white">{value}</span>
+          <span className="text-xs font-black text-white">{Math.round(safeValue)}</span>
         </div>
       </div>
     );
