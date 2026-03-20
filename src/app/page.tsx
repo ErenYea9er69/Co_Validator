@@ -188,6 +188,16 @@ export default function Home() {
     await performFullAudit(refinedIdea);
   };
 
+  const chunkedAllSettled = async <T = any,>(tasks: (() => Promise<T>)[], size: number) => {
+    const results: PromiseSettledResult<T>[] = [];
+    for (let i = 0; i < tasks.length; i += size) {
+      const chunk = tasks.slice(i, i + size);
+      const chunkResults = await Promise.allSettled(chunk.map(t => t()));
+      results.push(...chunkResults);
+    }
+    return results;
+  };
+
   // ─── Audit orchestrator with PARALLELIZED phases + error resilience ───
   const performFullAudit = async (customIdea?: any) => {
     const currentIdea = customIdea || idea;
@@ -229,14 +239,14 @@ export default function Home() {
       : "") + (trendData?.result ? `\nCURRENT 90-DAY TRENDS:\n${JSON.stringify(trendData.result)}` : "");
     const baseContext = `IDEA_INPUT: ${JSON.stringify(currentIdea)}${interrogationVerified}`;
 
-    const wave1 = await Promise.allSettled([
-      actions.runPhase1Problem(currentIdea, `Initial Scan${interrogationVerified}`, auditToken),
-      actions.runPhase2Competitors(currentIdea, `${currentIdea.competitorsInfo}${interrogationVerified}`, auditToken),
-      actions.runPhase4Feasibility(currentIdea, auditToken),
-      actions.runPhase5Market(currentIdea, auditToken),
-      actions.runFounderFit(currentIdea, auditToken),
-      actions.runSyntheticResearch(currentIdea, auditToken),
-    ]);
+    const wave1 = await chunkedAllSettled<any>([
+      () => actions.runPhase1Problem(currentIdea, `Initial Scan${interrogationVerified}`, auditToken),
+      () => actions.runPhase2Competitors(currentIdea, `${currentIdea.competitorsInfo}${interrogationVerified}`, auditToken),
+      () => actions.runPhase4Feasibility(currentIdea, auditToken),
+      () => actions.runPhase5Market(currentIdea, auditToken),
+      () => actions.runFounderFit(currentIdea, auditToken),
+      () => actions.runSyntheticResearch(currentIdea, auditToken),
+    ], 2); // Throttled to 2 at a time to prevent 429s
 
     wave1.forEach((w, i) => {
       const labels = ['Problem Reality', 'Competitor Investigation', 'Build Feasibility', 'Market & Monetization', 'Founder-Market Fit', 'Synthetic Primary Research'];
@@ -286,12 +296,12 @@ export default function Home() {
 
     // ═══ WAVE 2: Phases dependent on P2 (3, 6, Regulatory, Financial) ═══
     setPhase(3); setPhaseName('Deep-Dive Wave'); addLog('Analyzing saturation, differentiation, regulatory, and financials...');
-    const wave2 = await Promise.allSettled([
-      actions.runPhase3Competition(currentIdea, p2?.raw || '', auditToken),
-      actions.runPhase6Differentiation(currentIdea, p2?.raw || '', auditToken),
-      actions.runPhase9Regulatory(currentIdea, JSON.stringify({ p1, p2, p4 }), auditToken),
-      actions.runPhase10Financial(currentIdea, JSON.stringify({ p1, p2, p4, p5 }), auditToken),
-    ]);
+    const wave2 = await chunkedAllSettled<any>([
+      () => actions.runPhase3Competition(currentIdea, p2?.raw || '', auditToken),
+      () => actions.runPhase6Differentiation(currentIdea, p2?.raw || '', auditToken),
+      () => actions.runPhase9Regulatory(currentIdea, JSON.stringify({ p1, p2, p4 }), auditToken),
+      () => actions.runPhase10Financial(currentIdea, JSON.stringify({ p1, p2, p4, p5 }), auditToken),
+    ], 2);
 
     let p9: any = null, p10: any = null;
     wave2.forEach((w, i) => {
@@ -329,12 +339,12 @@ export default function Home() {
     setPhase(4.5); setPhaseName('Intelligence Verification'); addLog('Fact-checking AI claims and finding contradictions...');
     const intermediateOutputs = JSON.stringify({ p1: p1?.result, p2: p2?.result, p3: p3?.result, p4: p4?.result, p5: p5?.result, p6: p6?.result, p9: p9?.result, p10: p10?.result, syntheticData: syntheticData?.result });
     
-    const wave2_5 = await Promise.allSettled([
-      actions.runFactCheck(JSON.stringify({ Phase2_Competitors: p2?.result, Phase5_Market: p5?.result }), auditToken),
-      actions.runConsistencyAudit(intermediateOutputs, auditToken),
-      actions.runUnitEconVerification(JSON.stringify(p10?.result || {}), currentIdea.industry, auditToken),
-      actions.runGraveyardAnalysis(JSON.stringify(currentIdea), currentIdea.industry, auditToken)
-    ]);
+    const wave2_5 = await chunkedAllSettled<any>([
+      () => actions.runFactCheck(JSON.stringify({ Phase2_Competitors: p2?.result, Phase5_Market: p5?.result }), auditToken),
+      () => actions.runConsistencyAudit(intermediateOutputs, auditToken),
+      () => actions.runUnitEconVerification(JSON.stringify(p10?.result || {}), currentIdea.industry, auditToken),
+      () => actions.runGraveyardAnalysis(JSON.stringify(currentIdea), currentIdea.industry, auditToken)
+    ], 2);
     
     if (wave2_5[0].status === 'fulfilled') { factCheckData = wave2_5[0].value; setRawData((prev: any) => ({ ...prev, factCheck: factCheckData })); trackUsage(factCheckData); setCompletedSteps(prev => prev + 1); }
     if (wave2_5[1].status === 'fulfilled') { consistencyData = wave2_5[1].value; setRawData((prev: any) => ({ ...prev, consistency: consistencyData })); trackUsage(consistencyData); setCompletedSteps(prev => prev + 1); }
@@ -350,13 +360,13 @@ export default function Home() {
     });
 
     setPhase(6.5); setPhaseName('Deep Intelligence'); addLog('Running simulations and adversarial debate...');
-    const wave3 = await Promise.allSettled([
-      actions.runInterrogation(currentIdea, researchSummary, auditToken),
-      actions.runPreMortem(currentIdea, researchSummary, auditToken),
-      actions.runDebateEngine(currentIdea, researchSummary, auditToken),
-      actions.runCompetitiveResponse(currentIdea, researchSummary, auditToken),
-      actions.runApathySimulation(currentIdea, researchSummary, auditToken),
-    ]);
+    const wave3 = await chunkedAllSettled<any>([
+      () => actions.runInterrogation(currentIdea, researchSummary, auditToken),
+      () => actions.runPreMortem(currentIdea, researchSummary, auditToken),
+      () => actions.runDebateEngine(currentIdea, researchSummary, auditToken),
+      () => actions.runCompetitiveResponse(currentIdea, researchSummary, auditToken),
+      () => actions.runApathySimulation(currentIdea, researchSummary, auditToken),
+    ], 2);
 
     wave3.forEach((w, i) => {
       if (w.status === 'fulfilled') {
@@ -401,10 +411,10 @@ export default function Home() {
     // ═══ WAVE 4: Strategic Planning (Failures + Roadmap) ═══
     let roadmapData: any = null;
     setPhase(7); setPhaseName('Strategic Planning'); addLog('Developing failure pre-emption and industrial roadmap...');
-    const wave4 = await Promise.allSettled([
-      actions.runPhase7Failures(JSON.stringify(currentIdea), preMortemData?.result, researchSummary, auditToken),
-      actions.runPhase7Roadmap(currentIdea, researchSummary, auditToken)
-    ]);
+    const wave4 = await chunkedAllSettled<any>([
+      () => actions.runPhase7Failures(JSON.stringify(currentIdea), preMortemData?.result, researchSummary, auditToken),
+      () => actions.runPhase7Roadmap(currentIdea, researchSummary, auditToken)
+    ], 2);
 
     wave4.forEach((w, i) => {
       if (w.status === 'fulfilled') {

@@ -12,6 +12,12 @@ const API_KEYS = [
 
 function getKeyForPulse(pulse: string): string {
   if (API_KEYS.length === 0) return '';
+  // If no specific pulse or 'default', truly randomize to spread load across keys
+  if (!pulse || pulse === 'default') {
+    const randomIndex = Math.floor(Math.random() * API_KEYS.length);
+    return API_KEYS[randomIndex];
+  }
+  // For specific pulses, use hashing to keep affinity but reduce collisions
   const hash = crypto.createHash('md5').update(pulse).digest('hex');
   const index = parseInt(hash.substring(0, 8), 16) % API_KEYS.length;
   return API_KEYS[index];
