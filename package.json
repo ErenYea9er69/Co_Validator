@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@tavily/core": "^0.7.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "next": "16.1.7",
     "openai": "^6.31.0",
     "react": "19.2.3",

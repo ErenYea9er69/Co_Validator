@@ -11,6 +11,7 @@ import Benchmarks from './components/Benchmarks';
 import PitchDeck from './components/PitchDeck';
 import InvestorMatch from './components/InvestorMatch';
 import PivotSimulator from './components/PivotSimulator';
+import { generatePDF } from '@/lib/generatePDF';
 import { safeJsonParse } from '@/lib/safeJsonParse';
 
 
@@ -885,11 +886,11 @@ export default function Home() {
              </button>
              <button onClick={() => window.print()}
                 className="px-6 py-2 border border-white/20 rounded-full text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all text-gray-400">
-                Export PDF
+                Print Web View
              </button>
-             <button onClick={downloadJSON}
+             <button onClick={() => generatePDF(idea, result, rawData)}
                 className="px-6 py-2 bg-purple-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/40">
-                Export JSON
+                Download PDF Report
              </button>
           </div>
         )}
