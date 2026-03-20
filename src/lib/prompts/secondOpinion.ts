@@ -23,15 +23,18 @@ export async function secondOpinionReview(finalVerdictStr: string, allPhaseOutpu
   FORMAT:
   Return a JSON object:
   {
-    "blindSpots": [
+    "contrarianTake": "Brief, punchy dissenting summary.",
+    "overlookedRisks": [
       {
-        "whatTheySaid": "The flawed conclusion in the Final Verdict...",
-        "whyTheyAreWrong": "The data that contradicts it...",
-        "severity": "Fatal Flaw | Minor Oversight"
+        "risk": "Description of the risk",
+        "evidence": "Data they missed",
+        "severity": "Fatal | Significant"
       }
     ],
-    "dissentingVerdict": "If your verdict differs from theirs, what is it? (e.g., They said Greenlit, you say Pivot).",
-    "finalWarning": "A blunt warning to the founder about trusting the main report blindly."
+    "overlookedRisk": "A single sentence describing the biggest missed risk.",
+    "hiddenSilverLining": "One potentially huge win the main committee ignored.",
+    "dissentLevel": "High | Medium | Low",
+    "recalibratedVerdict": "A blunt final sentence re-framing the entire opportunity."
   `;
 
   return think([

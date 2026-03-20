@@ -5,10 +5,12 @@ export async function trendRadar(industry: string, recentNewsSummary: string): P
   You are the "Industry Trend Radar". 
   Your job is to establish the Ground Truth for the CURRENT state of this industry (last 90 days), so other agents don't rely on stale training data.
 
+  TODAY'S DATE: ${new Date().toISOString().split('T')[0]}
+
   INDUSTRY / CATEGORY: 
   ${industry}
 
-  FRESH NEWS & DATA (LAST 90 DAYS):
+  FRESH NEWS & DATA (LAST 14-90 DAYS):
   ${recentNewsSummary}
 
   TASK:

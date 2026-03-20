@@ -47,11 +47,11 @@ export async function factCheckClaims(claimsAndSearchData: string): Promise<stri
   FORMAT:
   Return a JSON object:
   {
-    "verifications": [
+    "factChecks": [
       {
-        "originalClaim": "...",
-        "status": "Confirmed | Contradicted | Unverifiable",
-        "groundTruth": "The actual fact found in the search data (or note that none was found).",
+        "claim": "...",
+        "verdict": "True | False | Unverifiable",
+        "reality": "The actual fact found in the search data (or note that none was found).",
         "source": "URL or domain where the ground truth was found"
       }
     ],

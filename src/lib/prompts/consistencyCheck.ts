@@ -25,8 +25,9 @@ export async function consistencyAuditor(allPhaseOutputsStr: string): Promise<st
         "issue": "The core topic of disagreement",
         "claim1": "What Report A said (cite the specific report/phase)",
         "claim2": "What Report B said (cite the specific report/phase)",
-        "severity": "High | Medium | Low",
-        "impactOnVerdict": "Why this disagreement breaks the entire business model."
+        "explanation": "Briefly explain the nature of the contradiction.",
+        "impactSeverity": "High | Medium | Low",
+        "logicBreak": "Why this disagreement breaks the entire business model."
       }
     ]
   `;

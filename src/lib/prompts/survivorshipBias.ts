@@ -18,16 +18,17 @@ export async function survivorshipBiasDetector(ideaStr: string, graveyardSearchR
   FORMAT:
   Return a JSON object:
   {
-    "deadStartups": [
+    "similarFailures": [
       {
-        "name": "Startup Name",
-        "causeOfDeath": "e.g., Ran out of cash, Customer Acquisition Cost too high, Cofounder dispute",
-        "source": "URL or article title where this was found",
-        "lessonForFounder": "What they must do differently to avoid this specific grave."
+        "companyName": "Startup Name",
+        "era": "e.g., 2012-2015",
+        "fatalFlaw": "e.g., CAC too high",
+        "realReasonForDeath": "Detailed internal reason if known",
+        "source": "URL or article title where this was found"
       }
     ],
-    "theFatalPattern": "The overarching reason this space is a graveyard.",
-    "survivalRequirement": "The 1 thing the founder must prove to avoid being next."
+    "sharedDelusion": "The overarching reason this space is a graveyard.",
+    "howToSurviveWhereTheyFailed": "The 1 thing the founder must prove to avoid being next."
   `;
 
   return think([

@@ -283,33 +283,49 @@ export async function gradeFounderAnswer(question: string, founderAnswer: string
 
 export async function runTrendRadar(industry: string, token?: string) {
   checkAuth(token);
-  // Optional: We can add a Tavily search here for the actual news, but let's wire it up simply first.
-  const searchQuery = `${industry} startup product updates pricing funding ${new Date().getFullYear()}`;
-  const searchRaw = await search(searchQuery, { searchDepth: 'basic', maxResults: 5, topic: 'news', timeRange: 'month' });
-  const raw = await trendRadar(industry, JSON.stringify(searchRaw));
+  const year = new Date().getFullYear();
+  const queries = [
+    `${industry} startup funding rounds ${year} news`,
+    `${industry} new product launches major shifts ${year}`,
+    `${industry} shutdown bankruptcy layoffs ${year} news`
+  ];
+  
+  const searchResults = await Promise.all(queries.map(q => 
+    search(q, { searchDepth: 'basic', maxResults: 3, topic: 'news', timeRange: 'month' })
+  ));
+  
+  const rawDataStr = JSON.stringify(searchResults.map(s => s.results).flat());
+  const raw = await trendRadar(industry, rawDataStr);
   return { result: safeJsonParse(raw, {}, 'Trend Radar'), raw };
 }
 
-export async function runBiasCalibration(ideaStr: string, founderStr: string, token?: string) {
+export async function runBiasCalibration(idea: any, token?: string) {
   checkAuth(token);
-  const raw = await founderBiasCalibrator(ideaStr, founderStr);
+  // Pass EVERYTHING for bias detection: problem, solution, traction, docs, background, budget
+  const context = JSON.stringify({
+    problem: idea.problem,
+    solution: idea.solution,
+    traction: idea.tractionEvidence,
+    docs: idea.tractionDocs,
+    whyNow: idea.whyNow,
+    budget: idea.budget
+  });
+  const raw = await founderBiasCalibrator(idea.solution, context);
   return { result: safeJsonParse(raw, {}, 'Bias Calibration'), raw };
 }
 
 export async function runFactCheck(phaseOutputsStr: string, token?: string) {
   checkAuth(token);
-  // 1. Extract claims
   const claimsRaw = await extractClaims(phaseOutputsStr);
   const claimsParsed = safeJsonParse(claimsRaw, { testableClaims: [] }, 'Extract Claims');
   
-  // 2. Search for each claim
-  const searchPromises = (claimsParsed.testableClaims || []).slice(0, 3).map(async (c: any) => {
-    const s = await search(c.searchQuery, { searchDepth: 'basic', maxResults: 3 });
+  // Increase to 8 claims + Advanced Search for better reality check
+  const searchPromises = (claimsParsed.testableClaims || []).slice(0, 8).map(async (c: any) => {
+    const s = await search(c.searchQuery, { searchDepth: 'advanced', maxResults: 3 });
     return { claim: c.claim, searchResults: s.results };
   });
   const searchResults = await Promise.all(searchPromises);
   
-  // 3. Fact check
   const raw = await factCheckClaims(JSON.stringify(searchResults));
   return { result: safeJsonParse(raw, {}, 'Fact Check'), raw };
 }
@@ -320,9 +336,14 @@ export async function runConsistencyAudit(allPhaseOutputsStr: string, token?: st
   return { result: safeJsonParse(raw, {}, 'Consistency Audit'), raw };
 }
 
-export async function runUnitEconVerification(financialOutputStr: string, industry: string, token?: string) {
+export async function runUnitEconVerification(financialOutputStr: string, industry: string, monetizationModel: string, token?: string) {
   checkAuth(token);
-  const searchQuery = `${industry} SaaS unit economics benchmarks CAC LTV gross margin churn ${new Date().getFullYear()}`;
+  // Dynamic benchmark search based on model
+  const modelType = monetizationModel.toLowerCase().includes('saas') ? 'SaaS' : 
+                    monetizationModel.toLowerCase().includes('marketplace') ? 'Marketplace' : 
+                    monetizationModel.toLowerCase().includes('hardware') ? 'Hardware' : 'Startup';
+  
+  const searchQuery = `${industry} ${modelType} unit economics benchmarks CAC LTV gross margin churn ${new Date().getFullYear()}`;
   const searchRaw = await search(searchQuery, { searchDepth: 'advanced', maxResults: 5 });
   const raw = await unitEconomicsVerifier(financialOutputStr, JSON.stringify(searchRaw));
   return { result: safeJsonParse(raw, {}, 'Unit Econ Verifier'), raw };
@@ -330,7 +351,9 @@ export async function runUnitEconVerification(financialOutputStr: string, indust
 
 export async function runGraveyardAnalysis(ideaStr: string, industry: string, token?: string) {
   checkAuth(token);
-  const searchQuery = `${industry} startup failed shutdown post-mortem crunchbase indiehackers`;
+  // Niche-specific graveyard search
+  const solutionNiche = ideaStr.substring(0, 60); // Get specific solution context
+  const searchQuery = `"${solutionNiche}" startup failed shutdown OR "post-mortem" OR "why we closed"`;
   const searchRaw = await search(searchQuery, { searchDepth: 'advanced', maxResults: 8 });
   const raw = await survivorshipBiasDetector(ideaStr, JSON.stringify(searchRaw));
   return { result: safeJsonParse(raw, {}, 'Graveyard Analysis'), raw };

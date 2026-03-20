@@ -225,10 +225,10 @@ export default function Home() {
     setPhase(0.5); setPhaseName('Pre-Flight Calibration'); addLog('Running Trend Radar & Bias Detection...');
     const wave0 = await Promise.allSettled([
       actions.runTrendRadar(currentIdea.industry, auditToken),
-      actions.runBiasCalibration(JSON.stringify(currentIdea), currentIdea.founderBackground, auditToken)
+      actions.runBiasCalibration(currentIdea, auditToken)
     ]);
-    if (wave0[0].status === 'fulfilled') { trendData = wave0[0].value; setRawData((prev: any) => ({ ...prev, trendRadar: trendData })); addLog('Trend Radar ✓'); trackUsage(trendData); setCompletedSteps(prev => prev + 1); }
-    if (wave0[1].status === 'fulfilled') { biasData = wave0[1].value; setRawData((prev: any) => ({ ...prev, founderBias: biasData })); addLog('Bias Calibration ✓'); trackUsage(biasData); setCompletedSteps(prev => prev + 1); }
+    if (wave0[0].status === 'fulfilled') { trendData = wave0[0].value as any; setRawData((prev: any) => ({ ...prev, trendRadar: trendData })); addLog('Trend Radar ✓'); trackUsage(trendData); setCompletedSteps(prev => prev + 1); }
+    if (wave0[1].status === 'fulfilled') { biasData = wave0[1].value as any; setRawData((prev: any) => ({ ...prev, founderBias: biasData })); addLog('Bias Calibration ✓'); trackUsage(biasData); setCompletedSteps(prev => prev + 1); }
 
     // ═══ WAVE 1: Independent phases in parallel (1, 2, 4, 5, Fit, Synthetic) ═══
     setPhase(1); setPhaseName('Parallel Scan (6 phases)'); addLog('Launching parallel research wave...');
@@ -340,10 +340,10 @@ export default function Home() {
     const intermediateOutputs = JSON.stringify({ p1: p1?.result, p2: p2?.result, p3: p3?.result, p4: p4?.result, p5: p5?.result, p6: p6?.result, p9: p9?.result, p10: p10?.result, syntheticData: syntheticData?.result });
     
     const wave2_5 = await chunkedAllSettled<any>([
-      () => actions.runFactCheck(JSON.stringify({ Phase2_Competitors: p2?.result, Phase5_Market: p5?.result }), auditToken),
+      () => actions.runFactCheck(intermediateOutputs, auditToken),
       () => actions.runConsistencyAudit(intermediateOutputs, auditToken),
-      () => actions.runUnitEconVerification(JSON.stringify(p10?.result || {}), currentIdea.industry, auditToken),
-      () => actions.runGraveyardAnalysis(JSON.stringify(currentIdea), currentIdea.industry, auditToken)
+      () => actions.runUnitEconVerification(JSON.stringify(p10?.result || {}), currentIdea.industry, currentIdea.monetization, auditToken),
+      () => actions.runGraveyardAnalysis(currentIdea.solution, currentIdea.industry, auditToken)
     ], 2);
     
     if (wave2_5[0].status === 'fulfilled') { factCheckData = wave2_5[0].value; setRawData((prev: any) => ({ ...prev, factCheck: factCheckData })); trackUsage(factCheckData); setCompletedSteps(prev => prev + 1); }
@@ -1092,6 +1092,44 @@ export default function Home() {
                 </section>
               )}
 
+              {/* II-b. INDUSTRY TREND RADAR (GROUND TRUTH) */}
+              {rawData.trendRadar?.result && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.5s' }}>
+                   <div className="glass-card border-l-4 border-blue-400 bg-blue-400/5">
+                      <h3 className="text-xl font-black text-blue-400 uppercase tracking-widest flex items-center gap-3 mb-6">
+                        <span className="text-2xl">📡</span>
+                        Industry Trend Radar (Active Scan)
+                      </h3>
+                      <div className="grid lg:grid-cols-2 gap-8">
+                         <div className="space-y-4">
+                            <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Major Competitive Shifts (Last 90 Days)</h4>
+                            <div className="grid gap-2">
+                               {rawData.trendRadar.result.majorShifts?.map((s: string, i: number) => (
+                                  <div key={i} className="flex gap-3 items-center p-3 bg-white/5 rounded-lg">
+                                     <span className="text-blue-500 font-black">0{i+1}</span>
+                                     <p className="text-sm text-gray-200 font-bold">{s}</p>
+                                  </div>
+                               ))}
+                            </div>
+                         </div>
+                         <div className="space-y-6">
+                            <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+                               <span className="text-[9px] text-gray-500 uppercase block mb-2">The Categorical Baseline (New Table-Stakes)</span>
+                               <p className="text-xs text-blue-300 italic">"{rawData.trendRadar.result.categoricalBaseline}"</p>
+                            </div>
+                            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                               <span className="text-[9px] text-red-500 font-black uppercase block mb-1">Recent Graveyard Additions</span>
+                               <p className="text-xs text-gray-400">{rawData.trendRadar.result.recentGraveyard}</p>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="mt-8 pt-6 border-t border-blue-500/20">
+                         <p className="text-xl font-black text-white italic text-center leading-relaxed">"{rawData.trendRadar.result.realityCheck}"</p>
+                      </div>
+                   </div>
+                </section>
+              )}
+
              {/* III. Problem & Market Evidence */}
              <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '0.4s' }}>
                 <h3 className="text-3xl font-black text-purple-400 flex items-center gap-4 print:text-purple-700">
@@ -1398,6 +1436,55 @@ export default function Home() {
                           </div>
                        </div>
                     </div>
+                </section>
+              )}
+
+              {/* X-b. UNIT ECONOMICS REALITY CHECK */}
+              {rawData.unitEcon?.result && (
+                <section className="space-y-8 animate-slide-up print:break-inside-avoid" style={{ animationDelay: '2.1s' }}>
+                   <h3 className="text-3xl font-black text-green-500 flex items-center gap-4">
+                      <span className="bg-green-500/10 w-10 h-10 flex items-center justify-center rounded-lg border border-green-500/30">X-b</span>
+                      UNIT ECONOMICS REALITY CHECK
+                   </h3>
+                   <div className="glass-card overflow-hidden">
+                      <table className="w-full text-left border-collapse">
+                         <thead>
+                            <tr className="bg-white/5">
+                               <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Metric</th>
+                               <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">AI Estimate</th>
+                               <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Industry Median</th>
+                               <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Delta State</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-white/5">
+                            {rawData.unitEcon.result.metricsChecked?.map((m: any, i: number) => (
+                               <tr key={i} className="hover:bg-white/5 transition-colors">
+                                  <td className="p-4">
+                                     <p className="text-sm font-black text-white">{m.metric}</p>
+                                     <p className="text-[10px] text-gray-500 italic">Verify logic: {m.correctionLogic}</p>
+                                  </td>
+                                  <td className="p-4 text-center font-mono text-xs text-gray-300">{m.aiEstimate}</td>
+                                  <td className="p-4 text-center font-mono text-xs text-blue-400">{m.industryMedian}</td>
+                                  <td className="p-4">
+                                     <span className={`text-[9px] font-black uppercase px-2 py-1 rounded ${
+                                        m.deltaState === 'Realistic' ? 'bg-green-500/20 text-green-500' : 
+                                        m.deltaState === 'Pessimistic' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-500 animate-pulse'
+                                     }`}>{m.deltaState}</span>
+                                  </td>
+                               </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                      <div className="p-6 bg-black/40 border-t border-white/10 flex justify-between items-center">
+                         <div className="flex-1 pr-8">
+                            <span className="text-[10px] text-gray-500 uppercase block mb-1">Financial Integrity Summary</span>
+                            <p className="text-lg font-black text-white italic">"{rawData.unitEcon.result.theHardTruth}"</p>
+                         </div>
+                         <div className={`px-6 py-3 rounded-2xl border-2 font-black uppercase tracking-widest ${rawData.unitEcon.result.modelViability === 'Viable' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'}`}>
+                            {rawData.unitEcon.result.modelViability}
+                         </div>
+                      </div>
+                   </div>
                 </section>
               )}
               {/* VII-b. Expert Stress Test Failure Scenarios */}
